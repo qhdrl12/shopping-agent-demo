@@ -108,6 +108,8 @@ def search_musinsa(query: str, num_results: int = 5) -> List[str]:
             limit=num_results
         )
         
+        print(f"search_musinsa result: {result}")
+
         # Extract URLs from the search results
         urls = []
         if result and 'data' in result:
@@ -167,7 +169,7 @@ def scrape_product_page(query: str) -> List[str]:
             wait_for=1500,  # Reduced wait time for faster response
             only_main_content=True  # Focus on main content to reduce processing time
         )
-        print(f"Scraping completed for query: {query}")
+        print(f"Scraping completed for result: {result}")
         
         # Extract product links from HTML
         html_content = result.html if hasattr(result, 'html') else ''
@@ -328,7 +330,7 @@ if __name__ == "__main__":
     # Test with the HTML you provided
         
     print("\nActual scraping result:")
-    result = scrape_product_page.invoke("여성 롱코트")
+    result = scrape_product_page.invoke("나이키 운동화")
     print(f"result: {result}")
     # print(f"Found {len(result.get('product_links', []))} product links:")
     for link in result[:20]:  # Show first 10 links

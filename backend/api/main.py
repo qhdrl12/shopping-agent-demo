@@ -79,6 +79,8 @@ async def chat_stream(request: ChatRequest):
                 ]
                 
                 # First run the workflow and get the result
+                print(f"Starting workflow for: {initial_state.user_query}")
+                
                 async for chunk in unified_workflow.workflow.astream(initial_state, stream_mode="values"):
                     print(f"Workflow chunk: {chunk}")
                     
