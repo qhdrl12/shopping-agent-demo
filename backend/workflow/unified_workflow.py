@@ -16,6 +16,7 @@ The workflow uses a state-based approach with conditional routing for optimal pe
 from typing import Dict, Any, List, Literal
 from langchain_core.messages import BaseMessage
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import BaseModel, Field
 
 from ..nodes.query_nodes import QueryNodes
@@ -55,6 +56,7 @@ class UnifiedShoppingWorkflow:
         self.search_nodes = SearchNodes()
         self.extraction_nodes = ExtractionNodes(model_name)
         self.response_nodes = ResponseNodes(model_name)
+        
         self.workflow = self._build_workflow()
     
     def _build_workflow(self) -> StateGraph:
@@ -111,7 +113,9 @@ class UnifiedShoppingWorkflow:
         
         workflow.add_edge("generate_final_response", END)
         
-        return workflow.compile()
+        checkpointer = InMemorySaver()
+
+        return workflow.compile(checkpointer=checkpointer)
     
     def _route_after_analysis(self, state: WorkflowState) -> str:
         """Route based on query analysis"""

@@ -54,17 +54,17 @@ async def chat_stream(request: ChatRequest):
     try:
         # Generate session ID if not provided
         session_id = request.session_id or str(uuid.uuid4())
-        
+        print(f"session_id: {session_id}")
         async def generate():
             try:
-                final_response = ""
-                current_response_buffer = ""
-                
+                final_response = ""            
                 # Initialize workflow state
                 initial_state = WorkflowState(
                     user_query=request.message,
                     current_step="start"
                 )
+
+                config = {"configurable": {"thread_id": session_id}}
                 
                 # Use original astream approach with token simulation
                 final_response = ""
@@ -81,7 +81,7 @@ async def chat_stream(request: ChatRequest):
                 # First run the workflow and get the result
                 print(f"Starting workflow for: {initial_state.user_query}")
                 
-                async for chunk in unified_workflow.workflow.astream(initial_state, stream_mode="values"):
+                async for chunk in unified_workflow.workflow.astream(initial_state, config=config, stream_mode="values"):
                     print(f"Workflow chunk: {chunk}")
                     
                     # Send step update

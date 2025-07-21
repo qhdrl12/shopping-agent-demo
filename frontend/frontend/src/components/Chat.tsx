@@ -48,6 +48,8 @@ export default function Chat() {
       content: input.trim()
     };
 
+    const sessionIdToSend = chatState.sessionId || crypto.randomUUID();
+
     setChatState(prev => ({
       ...prev,
       messages: [...prev.messages, userMessage, {
@@ -56,10 +58,13 @@ export default function Chat() {
         content: '🔄 처리를 시작하고 있습니다...'
       }],
       isLoading: true,
+      sessionId: sessionIdToSend, // Update session ID in state
       currentStreamingMessageId: null // Reset streaming message ID for new conversation
     }));
 
     setInput('');
+
+    console.log(`session_id: ${sessionIdToSend}`)
 
     try {
       const response = await fetch('http://localhost:8000/chat/stream', {
@@ -69,7 +74,7 @@ export default function Chat() {
         },
         body: JSON.stringify({
           message: input.trim(),
-          session_id: chatState.sessionId
+          session_id: sessionIdToSend
         })
       });
 
