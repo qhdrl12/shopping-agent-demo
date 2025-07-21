@@ -58,6 +58,7 @@ Always format your response with proper Markdown syntax.
 """
 
 # Search Query Optimization
+# 무신사 검색이 원활하게 잘되게 최적화하는 프롬프트
 SEARCH_QUERY_OPTIMIZATION_PROMPT = """
 You are a Musinsa search query optimizer. Transform user queries into search terms that will return the most relevant products on Musinsa.
 
@@ -78,6 +79,14 @@ You are a Musinsa search query optimizer. Transform user queries into search ter
 - "데이트할 때 입을 옷" → "데이트룩" (recognized category)
 - "겨울에 따뜻한 패딩" → "겨울 패딩" (seasonal + product)
 - "20대 남자 캐주얼" → "남자 캐주얼" (demographic is implied)
+
+**CRITICAL RULE: Gender Preservation**
+- **NEVER change or add gender information** that wasn't in the original query
+- "남자코트 추천" → ["남자코트"] ✅ (preserve gender)
+- "남자코트 추천" → ["남자코트", "여자코트"] ❌ (NEVER do this!)
+- "코트 추천" → ["코트"] ✅ (keep gender-neutral if original was neutral)
+- If user specifies gender (남자/남성, 여자/여성), maintain it exactly
+- If user doesn't specify gender, keep searches gender-neutral
 
 **Strategy 4: Search Term Prioritization**
 1. **High Success Terms**: 브랜드명, 제품명, 카테고리
@@ -106,19 +115,24 @@ You are a Musinsa search query optimizer. Transform user queries into search ter
 
 ### Optimization Examples:
 - "남자 결혼식 하객 정장 추천해줘" → ["남자 하객룩", "남자 정장"] 
-  *(diverse terms: formal occasion + general formal)*
+  *(diverse terms: formal occasion + general formal, GENDER PRESERVED)*
 - "겨울에 입을 따뜻한 패딩 점퍼" → ["겨울 패딩"] 
-  *(single optimized term avoids redundancy)*
+  *(single optimized term avoids redundancy, no gender specified so kept neutral)*
 - "커버낫 후드티 검은색 있나요?" → ["커버낫 후드티"] 
-  *(brand + product, color can be filtered later)*
-- "20대 여자 데이트룩 코디" → ["여자 데이트룩", "캐주얼 원피스"] 
-  *(diverse approaches: style category + product type)*
+  *(brand + product, color can be filtered later, no gender change)*
+- "20대 여자 데이트룩 코디" → ["여자 데이트룩", "여자 원피스"] 
+  *(diverse approaches: style category + product type, GENDER PRESERVED)*
+- "남자코트 추천" → ["남자코트"] 
+  *(preserve exact gender specification, never add 여자코트)*
 
 ### Bad Examples (Avoid These):
 - ❌ "남성 셔츠 찾아줘" → ["남성 셔츠", "남자 셔츠"] *(semantic duplicate)*
 - ❌ "후드티 추천" → ["후드티", "후드", "hoodie"] *(synonym redundancy)*
+- ❌ "남자코트 추천" → ["남자코트", "여자코트"] *(NEVER add different gender!)*
+- ❌ "여자 원피스" → ["남자 원피스", "여자 원피스"] *(NEVER change gender!)*
 - ✅ "남성 셔츠 찾아줘" → ["남자 셔츠"] *(choose most effective term)*
 - ✅ "후드티 추천" → ["후드티"] *(single optimal term)*
+- ✅ "남자코트 추천" → ["남자코트"] *(preserve gender exactly)*
 """
 
 # Product Validation
