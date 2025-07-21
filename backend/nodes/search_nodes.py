@@ -3,8 +3,6 @@ Search and filtering nodes
 """
 
 import re
-import asyncio
-import concurrent.futures
 from urllib.parse import urlparse
 from ..tools.firecrawl_tools import search_musinsa, scrape_product_page
 
@@ -23,104 +21,56 @@ class SearchNodes:
         # Set initial search state
         state.current_step = "search_products"
         
-        async def search_single_keyword(keyword: str) -> list:
-            """Search for a single keyword with fallback strategies"""
-            try:
-                # Strategy 1: Direct product page scraping
-                print(f"Trying direct scraping for keyword: {keyword}")
-                direct_results = await asyncio.get_event_loop().run_in_executor(
-                    None, scrape_product_page.invoke, keyword
-                )
-                if direct_results:
-                    print(f"Found {len(direct_results)} products via direct scraping for: {keyword}")
-                    return direct_results
-                
-                # Strategy 2: Site-wide search as fallback
-                print(f"Direct scraping failed, trying site search for: {keyword}")
-                site_results = await asyncio.get_event_loop().run_in_executor(
-                    None, search_musinsa.invoke, {"query": keyword, "num_results": 5}
-                )
-                if site_results:
-                    print(f"Found {len(site_results)} products via site search for: {keyword}")
-                    return site_results
-                
-                # Strategy 3: Expand query and retry direct scraping (parallel expanded queries)
-                expanded_queries = self._expand_query(keyword)
-                if expanded_queries:
-                    print(f"Trying {len(expanded_queries)} expanded queries for: {keyword}")
-                    
-                    # Run all expanded queries in parallel
-                    expanded_tasks = [
-                        asyncio.get_event_loop().run_in_executor(
-                            None, scrape_product_page.invoke, expanded_query
-                        ) for expanded_query in expanded_queries
-                    ]
-                    
-                    expanded_results = await asyncio.gather(*expanded_tasks, return_exceptions=True)
-                    
-                    for i, result in enumerate(expanded_results):
-                        if isinstance(result, list) and result:
-                            print(f"Found {len(result)} products via expanded query '{expanded_queries[i]}'")
-                            return result
-                
-            except Exception as e:
-                print(f"Search error for keyword '{keyword}': {e}")
-            
-            return []
-        
-        async def search_all_keywords():
-            """Search all keywords in parallel"""
-            tasks = [search_single_keyword(keyword) for keyword in state.search_keywords]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            all_results = []
-            for result in results:
-                if isinstance(result, list):
-                    all_results.extend(result)
-            
-            return all_results
-        
-        # Update state to show search is starting
         print(f"Starting search for {len(state.search_keywords)} keywords: {state.search_keywords}")
         
-        # Run async search
-        try:
-            if asyncio.get_event_loop().is_running():
-                # If already in an async context, create a new event loop
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, search_all_keywords())
-                    search_results = future.result()
-            else:
-                search_results = asyncio.run(search_all_keywords())
-        except:
-            # Fallback to sequential processing if async fails
-            print("Async search failed, falling back to sequential processing")
-            search_results = []
-            for keyword in state.search_keywords:
-                try:
-                    print(f"Sequential search for keyword: {keyword}")
-                    direct_results = scrape_product_page.invoke(keyword)
-                    if direct_results:
-                        search_results.extend(direct_results)
-                        continue
-                    
-                    site_results = search_musinsa.invoke({"query": keyword, "num_results": 5})
-                    if site_results:
-                        search_results.extend(site_results)
-                        continue
-                    
-                    expanded_queries = self._expand_query(keyword)
-                    for expanded_query in expanded_queries:
-                        expanded_results = scrape_product_page.invoke(expanded_query)
-                        if expanded_results:
-                            search_results.extend(expanded_results)
-                            break
-                        
-                except Exception as e:
-                    print(f"Search error for keyword '{keyword}': {e}")
-                    continue
+        search_results = []
         
-        # Remove duplicates while preserving order
+        # 3단계 검색 전략을 각 키워드에 대해 순차적으로 실행
+        # 비동기 처리가 실패할 경우의 폴백 메커니즘
+        for keyword in state.search_keywords:
+            try:
+                print(f"Sequential search for keyword: {keyword}")
+                
+                # 전략 1: 직접 상품 페이지 스크래핑 (가장 빠르고 정확한 방법)
+                # Musinsa 검색 결과 페이지를 직접 스크래핑하여 상품 링크 추출
+                direct_results = scrape_product_page.invoke(keyword)
+                if direct_results:
+                    print(f"Found {len(direct_results)} products via direct scraping for: {keyword}")
+                    search_results.extend(direct_results)
+                    continue  # 결과를 찾았으므로 다음 키워드로 진행
+                
+                # 전략 2: Firecrawl의 사이트 검색 API 사용 (폴백 방법)
+                # 직접 스크래핑이 실패했을 때 사용하는 대안적 검색 방법
+                site_results = search_musinsa.invoke(keyword)
+                if site_results:
+                    print(f"Found {len(site_results)} products via site search for: {keyword}")
+                    search_results.extend(site_results)
+                    continue  # 결과를 찾았으므로 다음 키워드로 진행
+                
+                # 전략 3: 쿼리 확장 후 재검색 (최후의 수단)
+                # 원본 키워드로 결과가 없을 때 유사한 키워드들로 확장하여 재시도
+                print(f"No results found for '{keyword}', trying expanded queries...")
+                expanded_queries = self._expand_query(keyword)
+                
+                for expanded_query in expanded_queries:
+                    print(f"Trying expanded query: '{expanded_query}'")
+                    expanded_results = scrape_product_page.invoke(expanded_query)
+                    if expanded_results:
+                        print(f"Found {len(expanded_results)} products via expanded query '{expanded_query}'")
+                        search_results.extend(expanded_results)
+                        break  # 하나의 확장 쿼리에서 결과를 찾았으므로 중단
+                    
+            except Exception as e:
+                # 개별 키워드 검색 중 오류 발생 시 로깅하고 다음 키워드 계속 처리
+                # 전체 검색 프로세스가 중단되지 않도록 예외 처리
+                print(f"Search error for keyword '{keyword}': {e}")
+                import traceback
+                traceback.print_exc()
+                continue  # 오류가 발생해도 다음 키워드 검색 계속 진행
+        
+        # 중복 URL 제거 (순서 유지)
+        # 여러 키워드 검색이나 확장 쿼리에서 동일한 상품이 중복될 수 있으므로
+        # set을 사용해 중복을 추적하면서 리스트 순서는 유지
         seen = set()
         unique_results = []
         for url in search_results:

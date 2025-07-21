@@ -130,6 +130,7 @@ export default function Chat() {
                   'extract_search_keywords': '검색 키워드 추출 중입니다...',
                   'search_products': '제품 검색 중입니다...',
                   'filter_product_links': '검색 결과 필터링 중입니다...',
+                  'extracting_product_details': '상품 상세정보를 수집 중',
                   'extract_product_data': '제품 상세정보 검색 중입니다...',
                   'validate_and_select': '제품 정보 검증 중입니다...',
                   'generate_final_response': '답변을 생성 중입니다...',
@@ -155,25 +156,23 @@ export default function Chat() {
                 const icon = isCompletion ? '✅' : '🔄';
                 
                 setChatState(prev => {
-                  // Keep only the last 3 progress messages to avoid clutter
-                  const filteredMessages = prev.messages.filter(msg => 
-                    msg.type !== 'system' || (
-                      msg.type === 'system' && 
-                      msg.metadata?.step_type === 'completion'
-                    )
-                  );
+                  // Remove all existing system messages to show only the latest one
+                  const filteredMessages = prev.messages.filter(msg => msg.type !== 'system');
+                  
+                  // Add new step message
+                  const newMessages = [...filteredMessages, {
+                    id: Date.now().toString() + '_step',
+                    type: 'system',
+                    content: `${icon} ${displayMessage}`,
+                    metadata: {
+                      step_type: isCompletion ? 'completion' : 'progress',
+                      step_name: parsed.current_step
+                    }
+                  }];
                   
                   return {
                     ...prev,
-                    messages: [...filteredMessages, {
-                      id: Date.now().toString() + '_step',
-                      type: 'system',
-                      content: `${icon} ${displayMessage}`,
-                      metadata: {
-                        step_type: isCompletion ? 'completion' : 'progress',
-                        step_name: parsed.current_step
-                      }
-                    }]
+                    messages: newMessages
                   };
                 });
                 
@@ -200,6 +199,7 @@ export default function Chat() {
                     }
                   } else {
                     // Remove system messages (including LLM processing messages) when answer starts
+                    console.log('Starting new AI response, clearing system messages');
                     newMessages = newMessages.filter(msg => msg.type !== 'system');
                     
                     // Create new AI message for this streaming session
@@ -305,8 +305,12 @@ export default function Chat() {
                 }));
               } else if (parsed.type === 'complete') {
                 // Handle final completion
+                console.log('Received completion signal');
                 setChatState(prev => {
                   let newMessages = [...prev.messages];
+                  
+                  // Remove any remaining system messages (progress indicators)
+                  newMessages = newMessages.filter(msg => msg.type !== 'system');
                   
                   // If response is provided and no AI message exists, add it
                   if (parsed.response && !prev.currentStreamingMessageId) {
@@ -331,22 +335,34 @@ export default function Chat() {
             }
           }
         }
+        
+        // Handle stream completion
+        console.log('Stream completed');
+        setChatState(prev => ({
+          ...prev,
+          isLoading: false
+        }));
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      setChatState(prev => ({
-        ...prev,
-        isLoading: false,
-        currentStreamingMessageId: null,
-        messages: [
-          ...prev.messages,
-          {
-            id: Date.now().toString() + '_error',
-            type: 'system',
-            content: '오류가 발생했습니다. 다시 시도해주세요.'
-          }
-        ]
-      }));
+      setChatState(prev => {
+        // Remove all system messages and add error message
+        const filteredMessages = prev.messages.filter(msg => msg.type !== 'system');
+        
+        return {
+          ...prev,
+          isLoading: false,
+          currentStreamingMessageId: null,
+          messages: [
+            ...filteredMessages,
+            {
+              id: Date.now().toString() + '_error',
+              type: 'ai',
+              content: '죄송합니다. 연결에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.'
+            }
+          ]
+        };
+      });
     }
   };
 
@@ -368,6 +384,10 @@ export default function Chat() {
           return 'bg-green-100 text-green-800 mr-auto border-l-4 border-green-500';
         }
         if (metadata?.step_type === 'progress') {
+          // Special styling for extracting_product_details
+          if (metadata?.step_name === 'extracting_product_details') {
+            return 'bg-blue-500 text-white mr-auto border-l-4 border-blue-700 font-medium';
+          }
           return 'bg-blue-100 text-blue-800 mr-auto border-l-4 border-blue-500';
         }
         return 'bg-yellow-100 text-yellow-800 mr-auto border-l-4 border-yellow-500';

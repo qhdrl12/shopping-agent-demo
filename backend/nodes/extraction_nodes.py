@@ -4,7 +4,7 @@ Data extraction and validation nodes
 
 import asyncio
 import json
-from typing import Dict, Any, List, Optional
+from typing import List
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
@@ -21,20 +21,15 @@ class ExtractionNodes:
     def extract_product_data(self, state) -> dict:
         """Extract product data in parallel"""
         
-        async def extract_single_product(url: str) -> Optional[Dict[str, Any]]:
-            """Extract data from a single product URL"""
-            try:
-                result = extract_product_info.invoke({"url": url})
-                if isinstance(result, dict) and result.get('name'):
-                    return result
-                return None
-            except Exception as e:
-                print(f"Extraction error for {url}: {e}")
-                return None
-        
-        async def extract_all_products():
+        async def extract_all_products(urls: List[str]):
             """Extract data from all product URLs in parallel"""
-            tasks = [extract_single_product(url) for url in state.filtered_product_links]
+            print(f"🚀 Starting parallel extraction for {len(urls)} products")
+            # Create tasks with index for better tracking
+            tasks = [
+                extract_product_info.ainvoke(url)
+                for url in urls
+            ]
+            
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
             valid_products = []
@@ -42,31 +37,11 @@ class ExtractionNodes:
                 if isinstance(result, dict) and result is not None:
                     valid_products.append(result)
             
-            return valid_products
+            print(f"🎉 Parallel extraction completed: {len(valid_products)}/{len(state.filtered_product_links)} products extracted successfully")
+            return valid_products        
         
-        # Run async extraction
-        try:
-            import asyncio
-            if asyncio.get_event_loop().is_running():
-                # If already in an async context, create a new event loop
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, extract_all_products())
-                    product_data = future.result()
-            else:
-                product_data = asyncio.run(extract_all_products())
-        except:
-            # Fallback to sequential processing
-            product_data = []
-            for url in state.filtered_product_links:
-                try:
-                    result = extract_product_info.invoke({"url": url})
-                    if isinstance(result, dict) and result.get('name'):
-                        product_data.append(result)
-                except Exception as e:
-                    print(f"Extraction error for {url}: {e}")
-                    continue
-        
+        product_data = asyncio.run(extract_all_products(state.filtered_product_links))
+
         state.product_data = product_data
         state.current_step = "data_extracted"
         

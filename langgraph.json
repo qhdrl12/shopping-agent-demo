@@ -1,0 +1,36 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "shopping_agent": {
+      "path": "backend.workflow.unified_workflow:workflow",
+      "config_schema": {
+        "type": "object",
+        "properties": {
+          "model_name": {
+            "type": "string",
+            "default": "gpt-4o-mini",
+            "description": "The OpenAI model to use"
+          }
+        }
+      },
+      "input_schema": {
+        "type": "object", 
+        "properties": {
+          "user_query": {
+            "type": "string",
+            "description": "User's shopping query"
+          },
+          "messages": {
+            "type": "array",
+            "items": {"type": "object"},
+            "default": [],
+            "description": "Chat message history"
+          }
+        },
+        "required": ["user_query"]
+      }
+    }
+  },
+  "env": ".env",
+  "python_version": "3.12"
+}

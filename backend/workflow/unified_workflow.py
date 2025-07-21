@@ -42,7 +42,6 @@ class WorkflowState(BaseModel):
     
     # Response generation
     final_response: str = Field(default="", description="Final formatted response to user")
-    streaming_content: str = Field(default="", description="Streaming content for token-level updates")
     
     # Workflow control
     current_step: str = Field(default="start", description="Current workflow step for debugging/monitoring")
@@ -68,6 +67,7 @@ class UnifiedShoppingWorkflow:
         workflow.add_node("extract_search_keywords", self.query_nodes.extract_search_keywords)
         workflow.add_node("search_products", self.search_nodes.search_products)
         workflow.add_node("filter_product_links", self.search_nodes.filter_product_links)
+        workflow.add_node("extracting_product_details", self._set_extracting_status)
         workflow.add_node("extract_product_data", self.extraction_nodes.extract_product_data)
         workflow.add_node("validate_and_select", self.extraction_nodes.validate_and_select)
         workflow.add_node("generate_final_response", self.response_nodes.generate_final_response)
@@ -93,11 +93,12 @@ class UnifiedShoppingWorkflow:
             "filter_product_links",
             self._route_after_filtering,
             {
-                "extract_data": "extract_product_data",
+                "extract_data": "extracting_product_details",
                 "no_results": "generate_final_response"
             }
         )
         
+        workflow.add_edge("extracting_product_details", "extract_product_data")
         workflow.add_edge("extract_product_data", "validate_and_select")
         
         workflow.add_conditional_edges(
@@ -125,7 +126,15 @@ class UnifiedShoppingWorkflow:
     def _route_after_validation(self, state: WorkflowState) -> str:
         """Route based on product validation"""
         return "generate_response"
+    
+    def _set_extracting_status(self, state: WorkflowState) -> WorkflowState:
+        """Set status to indicate product detail extraction is starting"""
+        state.current_step = "extracting_product_details"
+        return state
 
 
 # Create global workflow instance
 unified_workflow = UnifiedShoppingWorkflow()
+
+# Export compiled workflow for LangGraph Studio
+workflow = unified_workflow.workflow

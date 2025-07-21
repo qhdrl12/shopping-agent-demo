@@ -15,7 +15,6 @@ Required environment variables:
 
 import os
 import re
-import time
 from typing import List, Dict, Any
 from firecrawl import FirecrawlApp
 from langchain_core.tools import tool
@@ -118,9 +117,13 @@ def search_musinsa(query: str, num_results: int = 5) -> List[str]:
         
         return urls
     except Exception as e:
-        # Log error and return empty list for graceful degradation
+        # Firecrawl 검색 API 오류 발생 시 처리
+        # API 제한, 네트워크 오류, 인증 문제 등을 포함
+        # 빈 리스트를 반환하여 다른 검색 전략으로 폴백할 수 있도록 함
         print(f"Error searching Musinsa: {e}")
-        return []
+        import traceback
+        traceback.print_exc()
+        return []  # 빈 리스트 반환으로 graceful degradation 수행
 
 @tool
 def scrape_product_page(query: str) -> List[str]:
@@ -173,9 +176,13 @@ def scrape_product_page(query: str) -> List[str]:
         # Return structured response with all extracted data (limit to 5 for better performance)
         return product_links[:5] if len(product_links) >= 5 else product_links
     except Exception as e:
-        # Log error and return empty structure for graceful degradation
+        # 스크래핑 중 오류 발생 시 처리
+        # Firecrawl API 오류 (502 Bad Gateway 등), 네트워크 오류, 파싱 오류 등을 포함
+        # 빈 리스트를 반환하여 상위 로직에서 다른 검색 전략을 시도할 수 있도록 함
         print(f"Error scraping {query}: {e}")
-        return []
+        import traceback
+        traceback.print_exc()
+        return []  # 빈 리스트 반환으로 graceful degradation 수행
 
 @tool
 def extract_product_info(url: str) -> str:
@@ -216,6 +223,7 @@ def extract_product_info(url: str) -> str:
         '{"name": "나이키 에어맥스 90", "brand": "나이키", "price": 139000, ...}'
     """
     try:
+        print(f"start extract_product_info : {url}")
         # Define JSON schema for structured product data extraction
         # This schema ensures consistent data format across all extractions
         product_schema = {
@@ -300,9 +308,13 @@ def extract_product_info(url: str) -> str:
             return f"Could not extract product info from {url}"
             
     except Exception as e:
-        # Log error and return error message
+        # 상품 정보 추출 중 오류 발생 시 처리
+        # Firecrawl API 장애, 잘못된 URL, 파싱 실패 등의 경우를 포함
+        # 에러 메시지를 문자열로 반환하여 상위 로직에서 에러임을 인식할 수 있도록 함
         print(f"Error extracting product info from {url}: {e}")
-        return f"Error extracting product info from {url}: {e}"
+        import traceback
+        traceback.print_exc()
+        return f"Error extracting product info from {url}: {e}"  # 에러 메시지 반환
 
 # List of all tools for easy import by agents
 # This allows agents to import all tools at once: from .firecrawl_tools import firecrawl_tools
