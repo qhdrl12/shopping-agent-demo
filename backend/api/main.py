@@ -1,17 +1,16 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
 import asyncio
 import json
 import uuid
-from typing import Dict, Any
-import os
+from typing import Dict, Optional
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
 
-from ..models.schemas import AgentState
-from ..workflow.unified_workflow import unified_workflow, WorkflowState
-from pydantic import BaseModel
-from typing import Optional
+from ..workflow.unified_workflow import unified_workflow
 
 # Load environment variables
 load_dotenv()
@@ -40,6 +39,14 @@ app.add_middleware(
 # Session storage (in production, use Redis or database)
 sessions: Dict[str, str] = {}
 
+# Constants
+LLM_NODES = {
+    'analyze_query': 'AI가 질문을 분석하고 있습니다...',
+    'handle_general_query': 'AI가 답변을 생성하고 있습니다...',
+    'extract_search_keywords': 'AI가 검색 키워드를 추출하고 있습니다...',
+    'generate_final_response': 'AI가 최종 답변을 생성하고 있습니다...'
+}
+
 @app.get("/")
 async def root():
     return {"message": "Musinsa Shopping Agent API"}
@@ -58,9 +65,7 @@ async def chat_stream(request: ChatRequest):
         async def generate():
             try:
                 final_response = ""            
-                # Prepare the input for the workflow
-                # The user's message should be in a format that can be appended to the `messages` list in the state
-                from langchain_core.messages import HumanMessage
+                # Prepare workflow input with user message
                 workflow_input = {
                     "messages": [HumanMessage(content=request.message)]
                 }
@@ -74,13 +79,6 @@ async def chat_stream(request: ChatRequest):
                 final_response = ""
                 workflow_result = None
                 
-                # LLM-using nodes that need special status
-                llm_nodes = [
-                    'analyze_query',
-                    'handle_general_query', 
-                    'extract_search_keywords',
-                    'generate_final_response'
-                ]
                 
                 # First run the workflow and get the result
                 print(f"Starting workflow for: {request.message}")
@@ -97,7 +95,7 @@ async def chat_stream(request: ChatRequest):
                     
                     if current_step:
                         # Check if this is an LLM node
-                        is_llm_node = current_step in llm_nodes
+                        is_llm_node = current_step in LLM_NODES
                         
                         yield f"data: {json.dumps({
                             'type': 'step',
@@ -109,18 +107,12 @@ async def chat_stream(request: ChatRequest):
                         
                         # Send additional LLM processing notification for LLM nodes
                         if is_llm_node:
-                            llm_messages = {
-                                'analyze_query': 'AI가 질문을 분석하고 있습니다...',
-                                'handle_general_query': 'AI가 답변을 생성하고 있습니다...',
-                                'extract_search_keywords': 'AI가 검색 키워드를 추출하고 있습니다...',
-                                'generate_final_response': 'AI가 최종 답변을 생성하고 있습니다...'
-                            }
                             
                             yield f"data: {json.dumps({
                                 'type': 'llm_processing',
                                 'session_id': session_id,
                                 'node_name': current_step,
-                                'message': llm_messages.get(current_step, 'AI 처리 중...'),
+                                'message': LLM_NODES.get(current_step, 'AI 처리 중...'),
                                 'status': 'llm_running'
                             })}\n\n"
                     

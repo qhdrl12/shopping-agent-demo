@@ -4,6 +4,8 @@ Search and filtering nodes
 
 import re
 from urllib.parse import urlparse
+from typing import List
+
 from ..tools.firecrawl_tools import search_musinsa, scrape_product_page
 
 
@@ -137,7 +139,7 @@ class SearchNodes:
         except Exception:
             return False
     
-    def _expand_query(self, original_query: str) -> list[str]:
+    def _expand_query(self, original_query: str) -> List[str]:
         """
         Expand search query with related terms and variations
         

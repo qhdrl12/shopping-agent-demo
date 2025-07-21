@@ -5,6 +5,7 @@ Data extraction and validation nodes
 import asyncio
 import json
 from typing import List
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
@@ -15,7 +16,7 @@ from ..prompts.system_prompts import PRODUCT_VALIDATION_PROMPT
 class ExtractionNodes:
     """Nodes for product data extraction and validation"""
     
-    def __init__(self, model_name: str = "gpt-4o-mini"):
+    def __init__(self, model_name: str = "gpt-4.1-mini"):
         self.llm = ChatOpenAI(model=model_name, temperature=0)
     
     def extract_product_data(self, state) -> dict:
@@ -33,8 +34,11 @@ class ExtractionNodes:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
             valid_products = []
-            for result in results:
-                if isinstance(result, dict) and result is not None:
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    print(f"Error extracting product {i}: {result}")
+                    continue
+                if isinstance(result, dict) and result:
                     valid_products.append(result)
             
             print(f"🎉 Parallel extraction completed: {len(valid_products)}/{len(state['filtered_product_links'])} products extracted successfully")
@@ -70,11 +74,15 @@ class ExtractionNodes:
         
         try:
             selected_indices = json.loads(result.content)
-            # Filter product_data to only include selected products
-            selected_products = [state["product_data"][i] for i in selected_indices if i < len(state["product_data"])]
-            product_data = selected_products
-        except (json.JSONDecodeError, IndexError):
-            # Fallback: keep all products
+            # Validate indices and filter products
+            product_data_list = state["product_data"]
+            selected_products = [
+                product_data_list[i] for i in selected_indices 
+                if isinstance(i, int) and 0 <= i < len(product_data_list)
+            ]
+            product_data = selected_products if selected_products else product_data_list
+        except (json.JSONDecodeError, IndexError, TypeError) as e:
+            print(f"Product selection error: {e}, keeping all products")
             product_data = state["product_data"]
         
         return {

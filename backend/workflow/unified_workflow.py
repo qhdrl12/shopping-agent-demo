@@ -129,9 +129,9 @@ class UnifiedShoppingWorkflow:
         """Route based on product validation"""
         return "generate_response"
     
-    def _set_extracting_status(self, state: WorkflowState) -> WorkflowState:
+    def _set_extracting_status(self, state: WorkflowState) -> dict:
         """Set status to indicate product detail extraction is starting"""
-        return { "current_step": "extracting_product_details" }
+        return {"current_step": "extracting_product_details"}
 
 
 # Create global workflow instance

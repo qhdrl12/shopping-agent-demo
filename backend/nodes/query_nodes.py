@@ -4,8 +4,10 @@ Query analysis and handling nodes with streaming support
 
 import json
 from typing import Literal
+
 from pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import AIMessage
 from langchain_openai import ChatOpenAI
 
 from ..prompts.system_prompts import (
@@ -25,7 +27,7 @@ class QueryAnalysisOutput(BaseModel):
 class QueryNodes:
     """Nodes for query analysis and handling with streaming support"""
     
-    def __init__(self, model_name: str = "gpt-4o-mini"):
+    def __init__(self, model_name: str = "gpt-4.1-mini"):
         self.llm = ChatOpenAI(model=model_name, temperature=0)
         self.streaming_llm = ChatOpenAI(model=model_name, temperature=0, streaming=True)
     
@@ -57,7 +59,6 @@ class QueryNodes:
         result = self.llm.invoke(general_prompt.format_messages(messages=state["messages"]))
         
         # Add AI response to messages for multi-turn conversation
-        from langchain_core.messages import AIMessage
         
         return {
             "final_response": result.content,
@@ -81,13 +82,17 @@ class QueryNodes:
         
         try:
             keywords = json.loads(result.content)
+            if not isinstance(keywords, list):
+                raise ValueError("Keywords should be a list")
+            
             # On retry, reduce keywords to broaden search
-            if retry_count > 0:
+            if retry_count > 0 and keywords:
                 keywords = keywords[:max(1, len(keywords) - retry_count)]
-            search_keywords = keywords
-        except json.JSONDecodeError:
-            # Fallback to simple keyword extraction
-            search_keywords = [state["messages"][-1].content]
+            
+            search_keywords = keywords if keywords else [state["messages"][-1].content]
+        except (json.JSONDecodeError, ValueError, KeyError) as e:
+            print(f"Keyword extraction error: {e}")
+            search_keywords = [state["messages"][-1].content if state["messages"] else ""]
         
         return {
             "search_keywords": search_keywords,
