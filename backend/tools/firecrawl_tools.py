@@ -59,7 +59,7 @@ def extract_product_links(html: str) -> List[str]:
     
     # Find all matching href attributes
     matches = re.findall(href_pattern, html, re.IGNORECASE)
-    print(f"matches : {matches}")
+    # print(f"matches : {matches}")
     
     # Convert relative URLs to absolute URLs and filter unique ones
     product_links = []

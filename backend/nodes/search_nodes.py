@@ -67,6 +67,7 @@ class SearchNodes:
                 traceback.print_exc()
                 continue  # 오류가 발생해도 다음 키워드 검색 계속 진행
         
+
         # 중복 URL 제거 (순서 유지)
         # 여러 키워드 검색이나 확장 쿼리에서 동일한 상품이 중복될 수 있으므로
         # set을 사용해 중복을 추적하면서 리스트 순서는 유지
@@ -96,7 +97,7 @@ class SearchNodes:
                 product_links.append(url)
         
         return {
-            "filtered_product_links": product_links[:10],  # Limit to 10 products
+            "filtered_product_links": product_links[:5],  # Limit to 10 products
             "current_step": "links_filtered"
         }
     

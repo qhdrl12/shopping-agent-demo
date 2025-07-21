@@ -66,7 +66,7 @@ class UnifiedShoppingWorkflow:
         # Add all workflow nodes
         workflow.add_node("analyze_query", self.query_nodes.analyze_query)
         workflow.add_node("handle_general_query", self.query_nodes.handle_general_query)
-        workflow.add_node("extract_search_keywords", self.query_nodes.extract_search_keywords)
+        workflow.add_node("optimize_search_query", self.query_nodes.optimize_search_query)
         workflow.add_node("search_products", self.search_nodes.search_products)
         workflow.add_node("filter_product_links", self.search_nodes.filter_product_links)
         workflow.add_node("extracting_product_details", self._set_extracting_status)
@@ -83,12 +83,12 @@ class UnifiedShoppingWorkflow:
             self._route_after_analysis,
             {
                 "general": "handle_general_query",
-                "search_required": "extract_search_keywords"
+                "search_required": "optimize_search_query"
             }
         )
         
         workflow.add_edge("handle_general_query", END)
-        workflow.add_edge("extract_search_keywords", "search_products")
+        workflow.add_edge("optimize_search_query", "search_products")
         workflow.add_edge("search_products", "filter_product_links")
         
         workflow.add_conditional_edges(

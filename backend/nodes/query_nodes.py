@@ -13,7 +13,7 @@ from langchain_openai import ChatOpenAI
 from ..prompts.system_prompts import (
     QUERY_ANALYSIS_PROMPT,
     GENERAL_QUERY_PROMPT,
-    KEYWORD_EXTRACTION_PROMPT
+    SEARCH_QUERY_OPTIMIZATION_PROMPT
 )
 
 
@@ -36,12 +36,12 @@ class QueryNodes:
         
         analysis_prompt = ChatPromptTemplate.from_messages([
             ("system", QUERY_ANALYSIS_PROMPT),
-            MessagesPlaceholder(variable_name="messages"),
+            ("user", "{query}")
         ])
         
         # Use structured output to ensure only valid responses
         structured_llm = self.llm.with_structured_output(QueryAnalysisOutput)
-        result = structured_llm.invoke(analysis_prompt.format_messages(messages=state["messages"]))
+        result = structured_llm.invoke(analysis_prompt.format(query=state["messages"][-1].content))
         
         return {
             "query_type": result.query_type,
@@ -56,9 +56,9 @@ class QueryNodes:
             MessagesPlaceholder(variable_name="messages"),
         ])
         
-        result = self.llm.invoke(general_prompt.format_messages(messages=state["messages"]))
-        
-        # Add AI response to messages for multi-turn conversation
+        result = self.llm.invoke(general_prompt.format_messages(
+            messages=state["messages"]
+        ))
         
         return {
             "final_response": result.content,
@@ -66,35 +66,29 @@ class QueryNodes:
             "current_step": "completed"
         }
     
-    def extract_search_keywords(self, state) -> dict:
-        """Extract search keywords from the current query"""
-        retry_count = 3
+    def optimize_search_query(self, state) -> dict:
+        """Optimize user query into effective Musinsa search terms"""
         
-        keyword_prompt = ChatPromptTemplate.from_messages([
-            ("system", KEYWORD_EXTRACTION_PROMPT),
-            ("human", "Query: {query}\nRetry count: {retry_count}")
+        query_prompt = ChatPromptTemplate.from_messages([
+            ("system", SEARCH_QUERY_OPTIMIZATION_PROMPT),
+            ("human", "{query}")
         ])
         
-        result = self.llm.invoke(keyword_prompt.format(
+        result = self.llm.invoke(query_prompt.format(
             query=state["messages"][-1].content,
-            retry_count=retry_count
         ))
         
         try:
-            keywords = json.loads(result.content)
-            if not isinstance(keywords, list):
-                raise ValueError("Keywords should be a list")
+            search_queries = json.loads(result.content)
+            if not isinstance(search_queries, list):
+                raise ValueError("Search queries should be a list")
             
-            # On retry, reduce keywords to broaden search
-            if retry_count > 0 and keywords:
-                keywords = keywords[:max(1, len(keywords) - retry_count)]
-            
-            search_keywords = keywords if keywords else [state["messages"][-1].content]
+            search_keywords = search_queries if search_queries else [state["messages"][-1].content]
         except (json.JSONDecodeError, ValueError, KeyError) as e:
-            print(f"Keyword extraction error: {e}")
+            print(f"Search query optimization error: {e}")
             search_keywords = [state["messages"][-1].content if state["messages"] else ""]
         
         return {
             "search_keywords": search_keywords,
-            "current_step": "keywords_extracted"
+            "current_step": "search_optimized"
         }

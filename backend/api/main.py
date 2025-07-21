@@ -43,7 +43,7 @@ sessions: Dict[str, str] = {}
 LLM_NODES = {
     'analyze_query': 'AI가 질문을 분석하고 있습니다...',
     'handle_general_query': 'AI가 답변을 생성하고 있습니다...',
-    'extract_search_keywords': 'AI가 검색 키워드를 추출하고 있습니다...',
+    'optimize_search_query': 'AI가 검색어를 최적화하고 있습니다...',
     'generate_final_response': 'AI가 최종 답변을 생성하고 있습니다...'
 }
 

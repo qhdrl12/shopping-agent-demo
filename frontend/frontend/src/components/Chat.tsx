@@ -132,7 +132,7 @@ export default function Chat() {
                   // Node names from workflow (in-progress states)
                   'start': '처리를 시작하고 있습니다...',
                   'analyze_query': '질문 분석 중입니다...',
-                  'extract_search_keywords': '검색 키워드 추출 중입니다...',
+                  'optimize_search_query': '검색어 최적화 중입니다...',
                   'search_products': '제품 검색 중입니다...',
                   'filter_product_links': '검색 결과 필터링 중입니다...',
                   'extracting_product_details': '상품 상세정보를 수집 중',
@@ -143,7 +143,7 @@ export default function Chat() {
                   
                   // Step values from nodes (completion states)
                   'query_analyzed': '질문 분석이 완료되었습니다',
-                  'keywords_extracted': '검색 키워드 추출을 완료했습니다',
+                  'search_optimized': '검색어 최적화를 완료했습니다',
                   'search_completed': '제품 검색을 완료했습니다',
                   'links_filtered': '검색 결과 필터링을 완료했습니다',
                   'data_extracted': '제품 상세정보 검색을 완료했습니다',
@@ -157,7 +157,7 @@ export default function Chat() {
                 const displayMessage = message || `${parsed.current_step} 처리 중...`;
                 
                 // Choose icon based on whether it's in-progress or completion
-                const isCompletion = parsed.current_step.includes('_') && !['analyze_query', 'extract_search_keywords', 'search_products', 'filter_product_links', 'extract_product_data', 'validate_and_select', 'generate_final_response', 'handle_general_query'].includes(parsed.current_step);
+                const isCompletion = parsed.current_step.includes('_') && !['analyze_query', 'optimize_search_query', 'search_products', 'filter_product_links', 'extract_product_data', 'validate_and_select', 'generate_final_response', 'handle_general_query'].includes(parsed.current_step);
                 const icon = isCompletion ? '✅' : '🔄';
                 
                 setChatState(prev => {
