@@ -58,13 +58,17 @@ async def chat_stream(request: ChatRequest):
         async def generate():
             try:
                 final_response = ""            
-                # Initialize workflow state
-                initial_state = WorkflowState(
-                    user_query=request.message,
-                    current_step="start"
-                )
+                # Prepare the input for the workflow
+                # The user's message should be in a format that can be appended to the `messages` list in the state
+                from langchain_core.messages import HumanMessage
+                workflow_input = {
+                    "messages": [HumanMessage(content=request.message)]
+                }
 
-                config = {"configurable": {"thread_id": session_id}}
+                config = {
+                    "configurable": {"thread_id": session_id},
+                    "recursion_limit": 15
+                }
                 
                 # Use original astream approach with token simulation
                 final_response = ""
@@ -79,9 +83,9 @@ async def chat_stream(request: ChatRequest):
                 ]
                 
                 # First run the workflow and get the result
-                print(f"Starting workflow for: {initial_state.user_query}")
+                print(f"Starting workflow for: {request.message}")
                 
-                async for chunk in unified_workflow.workflow.astream(initial_state, config=config, stream_mode="values"):
+                async for chunk in unified_workflow.workflow.astream(workflow_input, config=config, stream_mode="values"):
                     print(f"Workflow chunk: {chunk}")
                     
                     # Send step update

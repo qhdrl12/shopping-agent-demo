@@ -18,16 +18,13 @@ class SearchNodes:
         3. If still no results, expand query and retry scrape_product_page (parallel)
         """
         
-        # Set initial search state
-        state.current_step = "search_products"
-        
-        print(f"Starting search for {len(state.search_keywords)} keywords: {state.search_keywords}")
+        print(f"Starting search for {len(state['search_keywords'])} keywords: {state['search_keywords']}")
         
         search_results = []
         
         # 3단계 검색 전략을 각 키워드에 대해 순차적으로 실행
         # 비동기 처리가 실패할 경우의 폴백 메커니즘
-        for keyword in state.search_keywords:
+        for keyword in state['search_keywords']:
             try:
                 print(f"Sequential search for keyword: {keyword}")
                 
@@ -78,30 +75,28 @@ class SearchNodes:
                 seen.add(url)
                 unique_results.append(url)
         
-        state.search_results = unique_results
-        state.current_step = "search_completed"
-        
         print(f"Total unique results found: {len(unique_results)}")
-        return state
+        return {
+            "search_results": unique_results,
+            "current_step": "search_completed"
+        }
     
     def filter_product_links(self, state) -> dict:
         """Filter and validate product links"""
         
-        # Set initial filtering state
-        state.current_step = "filter_product_links"
-        print(f"Filtering {len(state.search_results)} search results...")
+        print(f"Filtering {len(state['search_results'])} search results...")
         
         product_links = []
         
-        for url in state.search_results:
+        for url in state['search_results']:
             # Check if URL is a valid product page
             if self._is_product_url(url):
                 product_links.append(url)
         
-        state.filtered_product_links = product_links[:10]  # Limit to 10 products
-        state.current_step = "links_filtered"
-        
-        return state
+        return {
+            "filtered_product_links": product_links[:10],  # Limit to 10 products
+            "current_step": "links_filtered"
+        }
     
     def _is_product_url(self, url: str) -> bool:
         """Check if URL is a valid Musinsa product page"""

@@ -5,7 +5,7 @@ Query analysis and handling nodes with streaming support
 import json
 from typing import Literal
 from pydantic import BaseModel, Field
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 
 from ..prompts.system_prompts import (
@@ -34,35 +34,40 @@ class QueryNodes:
         
         analysis_prompt = ChatPromptTemplate.from_messages([
             ("system", QUERY_ANALYSIS_PROMPT),
-            ("human", "{query}")
+            MessagesPlaceholder(variable_name="messages"),
         ])
         
         # Use structured output to ensure only valid responses
         structured_llm = self.llm.with_structured_output(QueryAnalysisOutput)
-        result = structured_llm.invoke(analysis_prompt.format(query=state.user_query))
+        result = structured_llm.invoke(analysis_prompt.format_messages(messages=state["messages"]))
         
-        state.query_type = result.query_type
-        state.current_step = "query_analyzed"
-        
-        return state
+        return {
+            "query_type": result.query_type,
+            "current_step": "query_analyzed"
+        }
     
     def handle_general_query(self, state) -> dict:
-        """Synchronous version for backward compatibility"""
+        """Handle general queries using conversation history"""
         
         general_prompt = ChatPromptTemplate.from_messages([
             ("system", GENERAL_QUERY_PROMPT),
-            ("human", "{query}")
+            MessagesPlaceholder(variable_name="messages"),
         ])
         
-        result = self.llm.invoke(general_prompt.format(query=state.user_query))
-        state.final_response = result.content
-        state.current_step = "completed"
+        result = self.llm.invoke(general_prompt.format_messages(messages=state["messages"]))
         
-        return state
+        # Add AI response to messages for multi-turn conversation
+        from langchain_core.messages import AIMessage
+        
+        return {
+            "final_response": result.content,
+            "messages": [AIMessage(content=result.content)],
+            "current_step": "completed"
+        }
     
     def extract_search_keywords(self, state) -> dict:
-        """Extract search keywords from the query"""
-        retry_count=3
+        """Extract search keywords from the current query"""
+        retry_count = 3
         
         keyword_prompt = ChatPromptTemplate.from_messages([
             ("system", KEYWORD_EXTRACTION_PROMPT),
@@ -70,7 +75,7 @@ class QueryNodes:
         ])
         
         result = self.llm.invoke(keyword_prompt.format(
-            query=state.user_query,
+            query=state["messages"][-1].content,
             retry_count=retry_count
         ))
         
@@ -79,10 +84,12 @@ class QueryNodes:
             # On retry, reduce keywords to broaden search
             if retry_count > 0:
                 keywords = keywords[:max(1, len(keywords) - retry_count)]
-            state.search_keywords = keywords
+            search_keywords = keywords
         except json.JSONDecodeError:
             # Fallback to simple keyword extraction
-            state.search_keywords = [state.user_query]
+            search_keywords = [state["messages"][-1].content]
         
-        state.current_step = "keywords_extracted"
-        return state
+        return {
+            "search_keywords": search_keywords,
+            "current_step": "keywords_extracted"
+        }

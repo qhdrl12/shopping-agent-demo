@@ -37,22 +37,21 @@ class ExtractionNodes:
                 if isinstance(result, dict) and result is not None:
                     valid_products.append(result)
             
-            print(f"🎉 Parallel extraction completed: {len(valid_products)}/{len(state.filtered_product_links)} products extracted successfully")
+            print(f"🎉 Parallel extraction completed: {len(valid_products)}/{len(state['filtered_product_links'])} products extracted successfully")
             return valid_products        
         
-        product_data = asyncio.run(extract_all_products(state.filtered_product_links))
+        product_data = asyncio.run(extract_all_products(state['filtered_product_links']))
 
-        state.product_data = product_data
-        state.current_step = "data_extracted"
-        
-        return state
+        return {
+            "product_data": product_data,
+            "current_step": "data_extracted"
+        }
     
     def validate_and_select(self, state) -> dict:
         """Validate and select relevant products"""
         
-        if not state.product_data:
-            state.current_step = "no_valid_data"
-            return state
+        if not state.get("product_data"):
+            return {"current_step": "no_valid_data"}
         
         validation_prompt = ChatPromptTemplate.from_messages([
             ("system", PRODUCT_VALIDATION_PROMPT),
@@ -60,24 +59,25 @@ class ExtractionNodes:
         ])
         
         products_summary = []
-        for i, product in enumerate(state.product_data):
+        for i, product in enumerate(state["product_data"]):
             summary = f"{i}: {product.get('name', 'Unknown')} - {product.get('price', 'No price')}"
             products_summary.append(summary)
         
         result = self.llm.invoke(validation_prompt.format(
-            query=state.user_query,
+            query=state["messages"][-1].content,
             products="\n".join(products_summary)
         ))
         
         try:
             selected_indices = json.loads(result.content)
             # Filter product_data to only include selected products
-            selected_products = [state.product_data[i] for i in selected_indices if i < len(state.product_data)]
-            state.product_data = selected_products
+            selected_products = [state["product_data"][i] for i in selected_indices if i < len(state["product_data"])]
+            product_data = selected_products
         except (json.JSONDecodeError, IndexError):
             # Fallback: keep all products
-            pass
+            product_data = state["product_data"]
         
-        state.current_step = "products_selected"
-        
-        return state
+        return {
+            "product_data": product_data,
+            "current_step": "products_selected"
+        }

@@ -13,11 +13,11 @@ This module implements a single LangGraph workflow that handles the complete sho
 The workflow uses a state-based approach with conditional routing for optimal performance.
 """
 
-from typing import Dict, Any, List, Literal
+import operator
+from typing import Dict, Any, List, Literal, TypedDict, Annotated
 from langchain_core.messages import BaseMessage
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import InMemorySaver
-from pydantic import BaseModel, Field
 
 from ..nodes.query_nodes import QueryNodes
 from ..nodes.search_nodes import SearchNodes
@@ -25,38 +25,38 @@ from ..nodes.extraction_nodes import ExtractionNodes
 from ..nodes.response_nodes import ResponseNodes
 
 
-class WorkflowState(BaseModel):
+class WorkflowState(TypedDict):
     """Enhanced state model for the unified workflow"""
     
     # User input and query analysis
-    messages: List[BaseMessage] = Field(default_factory=list, description="Chat messages history")
-    user_query: str = Field(default="", description="Original user query text")
-    query_type: Literal["general", "search_required"] = Field(default="general", description="Classified query type")
+    messages: Annotated[List[BaseMessage], operator.add]
+    query_type: Literal["general", "search_required"]
     
     # Search phase
-    search_keywords: List[str] = Field(default_factory=list, description="Extracted keywords for product search")
-    search_results: List[str] = Field(default_factory=list, description="Raw search result URLs from Firecrawl")
-    filtered_product_links: List[str] = Field(default_factory=list, description="Filtered valid product page URLs")
+    search_keywords: List[str]
+    search_results: List[str]
+    filtered_product_links: List[str]
     
     # Data extraction phase  
-    product_data: List[Dict[str, Any]] = Field(default_factory=list, description="Extracted and validated product information")
+    product_data: List[Dict[str, Any]]
     
     # Response generation
-    final_response: str = Field(default="", description="Final formatted response to user")
+    final_response: str
     
     # Workflow control
-    current_step: str = Field(default="start", description="Current workflow step for debugging/monitoring")
+    current_step: str
 
 
 class UnifiedShoppingWorkflow:
     """Main workflow class that orchestrates the shopping assistance process"""
     
-    def __init__(self, model_name: str = "gpt-4o-mini"):
+    def __init__(self, model_name: str = "gpt-4.1-mini"):
         self.query_nodes = QueryNodes(model_name)
         self.search_nodes = SearchNodes()
         self.extraction_nodes = ExtractionNodes(model_name)
         self.response_nodes = ResponseNodes(model_name)
         
+        self.saver = InMemorySaver()
         self.workflow = self._build_workflow()
     
     def _build_workflow(self) -> StateGraph:
@@ -112,18 +112,16 @@ class UnifiedShoppingWorkflow:
         )
         
         workflow.add_edge("generate_final_response", END)
-        
-        checkpointer = InMemorySaver()
 
-        return workflow.compile(checkpointer=checkpointer)
+        return workflow.compile(checkpointer=self.saver)
     
     def _route_after_analysis(self, state: WorkflowState) -> str:
         """Route based on query analysis"""
-        return state.query_type
+        return state["query_type"]
     
     def _route_after_filtering(self, state: WorkflowState) -> str:
         """Route based on filtered product links"""
-        if not state.filtered_product_links:
+        if not state["filtered_product_links"]:
             return "no_results"
         return "extract_data"
     
@@ -133,8 +131,7 @@ class UnifiedShoppingWorkflow:
     
     def _set_extracting_status(self, state: WorkflowState) -> WorkflowState:
         """Set status to indicate product detail extraction is starting"""
-        state.current_step = "extracting_product_details"
-        return state
+        return { "current_step": "extracting_product_details" }
 
 
 # Create global workflow instance
