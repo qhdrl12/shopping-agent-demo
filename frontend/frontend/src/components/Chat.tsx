@@ -374,45 +374,69 @@ export default function Chat() {
   const getMessageStyle = (type: string, metadata?: any) => {
     switch (type) {
       case 'user':
-        return 'bg-gradient-to-br from-blue-500 to-blue-600 text-white ml-auto shadow-lg border border-blue-400/20';
+        return 'bg-gradient-to-br from-blue-600/90 to-indigo-700/90 text-white ml-auto shadow-2xl border border-blue-400/30 backdrop-blur-xl';
       case 'ai':
-        return 'bg-gradient-to-br from-gray-800 to-gray-900 text-gray-100 mr-auto shadow-lg border border-gray-600/20';
+        return 'bg-gradient-to-br from-gray-900/95 to-slate-800/95 text-gray-100 mr-auto shadow-2xl border border-gray-700/40 backdrop-blur-xl';
       case 'tool':
-        return 'bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 text-emerald-300 mr-auto border-l-4 border-emerald-400 backdrop-blur-sm';
+        return 'bg-gradient-to-br from-emerald-500/15 to-emerald-600/15 text-emerald-200 mr-auto border border-emerald-400/30 backdrop-blur-xl shadow-lg';
       case 'system':
         // Special styling for LLM processing messages
         if (metadata?.status === 'llm_processing') {
-          return 'bg-gradient-to-br from-purple-500/10 to-purple-600/10 text-purple-300 mr-auto border-l-4 border-purple-400 backdrop-blur-sm';
+          return 'bg-gradient-to-br from-purple-500/15 to-purple-600/15 text-purple-200 mr-auto border border-purple-400/30 backdrop-blur-xl shadow-lg';
         }
         // Different styling for progress vs completion
         if (metadata?.step_type === 'completion') {
-          return 'bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 text-emerald-300 mr-auto border-l-4 border-emerald-400 backdrop-blur-sm';
+          return 'bg-gradient-to-br from-emerald-500/15 to-emerald-600/15 text-emerald-200 mr-auto border border-emerald-400/30 backdrop-blur-xl shadow-lg';
         }
         if (metadata?.step_type === 'progress') {
           // Special styling for extracting_product_details
           if (metadata?.step_name === 'extracting_product_details') {
-            return 'bg-gradient-to-br from-cyan-500 to-cyan-600 text-white mr-auto border-l-4 border-cyan-300 font-medium shadow-lg backdrop-blur-sm';
+            return 'bg-gradient-to-br from-cyan-600/90 to-cyan-700/90 text-white mr-auto border border-cyan-400/40 font-medium shadow-2xl backdrop-blur-xl';
           }
-          return 'bg-gradient-to-br from-blue-500/10 to-blue-600/10 text-blue-300 mr-auto border-l-4 border-blue-400 backdrop-blur-sm';
+          return 'bg-gradient-to-br from-blue-500/15 to-blue-600/15 text-blue-200 mr-auto border border-blue-400/30 backdrop-blur-xl shadow-lg';
         }
-        return 'bg-gradient-to-br from-amber-500/10 to-amber-600/10 text-amber-300 mr-auto border-l-4 border-amber-400 backdrop-blur-sm';
+        return 'bg-gradient-to-br from-amber-500/15 to-amber-600/15 text-amber-200 mr-auto border border-amber-400/30 backdrop-blur-xl shadow-lg';
       default:
-        return 'bg-gradient-to-br from-gray-700 to-gray-800 text-gray-200 mr-auto backdrop-blur-sm';
+        return 'bg-gradient-to-br from-gray-800/80 to-gray-900/80 text-gray-200 mr-auto backdrop-blur-xl border border-gray-600/30';
     }
   };
 
   const getMessageIcon = (type: string) => {
     switch (type) {
       case 'user':
-        return '👤';
+        return (
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg border border-blue-400/40">
+            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+            </svg>
+          </div>
+        );
       case 'ai':
-        return '🔮';
+        return (
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg border border-purple-400/40">
+            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        );
       case 'tool':
-        return '⚡';
+        return (
+          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-md border border-emerald-400/40">
+            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+            </svg>
+          </div>
+        );
       case 'system':
-        return '🔮';
+        return (
+          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-500 to-gray-600 flex items-center justify-center shadow-md border border-gray-400/40">
+            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+          </div>
+        );
       default:
-        return '';
+        return null;
     }
   };
 
@@ -468,124 +492,189 @@ export default function Chat() {
             </div>
           )}
 
-          {chatState.messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
-            >
-              <div
-                className={`max-w-4xl px-6 py-4 rounded-2xl ${getMessageStyle(message.type, message.metadata)} backdrop-blur-xl`}
-              >
-                <div className="flex items-start space-x-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-700/50 flex items-center justify-center backdrop-blur-sm border border-gray-600/30">
-                    <span className="text-sm">{getMessageIcon(message.type)}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {message.type === 'ai' ? (
-                      <div className="prose prose-invert prose-sm max-w-none">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          rehypePlugins={[rehypeHighlight]}
-                          components={{
-                            // Custom styling for markdown elements
-                            h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-gray-100 mb-4 border-b border-gray-600/30 pb-2" {...props} />,
-                            h2: ({node, ...props}) => <h2 className="text-xl font-semibold text-gray-200 mb-3 mt-6" {...props} />,
-                            h3: ({node, ...props}) => <h3 className="text-lg font-medium text-gray-300 mb-2 mt-4" {...props} />,
-                            p: ({node, ...props}) => <p className="text-gray-300 mb-3 leading-relaxed" {...props} />,
-                            ul: ({node, ...props}) => <ul className="text-gray-300 space-y-1 ml-4" {...props} />,
-                            ol: ({node, ...props}) => <ol className="text-gray-300 space-y-1 ml-4" {...props} />,
-                            li: ({node, ...props}) => <li className="text-gray-300" {...props} />,
-                            strong: ({node, ...props}) => <strong className="text-gray-100 font-semibold" {...props} />,
-                            em: ({node, ...props}) => <em className="text-blue-300 italic" {...props} />,
-                            code: ({node, ...props}) => <code className="bg-gray-700/50 text-cyan-300 px-2 py-1 rounded font-mono text-sm" {...props} />,
-                            pre: ({node, ...props}) => (
-                              <pre className="bg-gray-800/80 border border-gray-600/30 rounded-lg p-4 overflow-x-auto backdrop-blur-sm" {...props} />
-                            ),
-                            blockquote: ({node, ...props}) => (
-                              <blockquote className="border-l-4 border-blue-500/50 pl-4 text-gray-400 italic bg-gray-800/20 py-2 rounded-r" {...props} />
-                            ),
-                            table: ({node, ...props}) => (
-                              <div className="overflow-x-auto">
-                                <table className="min-w-full border border-gray-600/30 rounded-lg overflow-hidden" {...props} />
-                              </div>
-                            ),
-                            th: ({node, ...props}) => <th className="bg-gray-700/50 text-gray-200 px-4 py-2 text-left font-semibold" {...props} />,
-                            td: ({node, ...props}) => <td className="border-t border-gray-600/30 px-4 py-2 text-gray-300" {...props} />,
-                            a: ({node, href, children, ...props}) => {
-                              const childText = children?.toString() || '';
-                              
-                              // 구매하기 또는 SHOP NOW 링크인 경우 특별한 버튼 스타일 적용
-                              if (childText.includes('SHOP NOW') || childText.includes('구매하기')) {
-                                return (
-                                  <div className="my-6 flex justify-center space-x-4">
-                                    <a
-                                      href={href}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="group relative inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-xl border border-blue-500/30 backdrop-blur-sm"
-                                      {...props}
-                                    >
-                                      <div className="flex items-center space-x-2">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                                        </svg>
-                                        <span>구매하기</span>
-                                      </div>
-                                    </a>
-                                    
-                                    {/* 바로결제 버튼 (테스트용) */}
-                                    <a
-                                      href={href}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="group relative inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-300 hover:to-yellow-400 text-gray-900 font-bold rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-xl hover:shadow-yellow-400/30 border border-yellow-500/40 backdrop-blur-sm"
-                                    >
-                                      <div className="flex items-center space-x-2">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                        </svg>
-                                        <span>바로결제</span>
-                                      </div>
-                                    </a>
-                                  </div>
-                                );
-                              }
-                              // 일반 링크는 기본 스타일
-                              return <a href={href} className="text-blue-400 hover:text-blue-300 underline transition-colors" {...props}>{children}</a>;
-                            },
-                            img: ({node, src, alt, ...props}) => (
-                              <div className="my-4">
-                                <img
-                                  src={src}
-                                  alt={alt}
-                                  className="w-full max-w-2xl h-[640px] object-cover rounded-xl shadow-lg mx-auto block"
-                                  {...props}
-                                />
-                              </div>
-                            )
-                          }}
-                        >
+          {chatState.messages.map((message, index) => {
+            if (message.type === 'user') {
+              return (
+                <div key={index} className="flex justify-end animate-fade-in mb-6">
+                  <div className={`max-w-2xl px-6 py-4 rounded-3xl ${getMessageStyle(message.type, message.metadata)}`}>
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white font-medium leading-relaxed">
                           {message.content}
-                        </ReactMarkdown>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                      <div className="flex-shrink-0">
+                        {getMessageIcon(message.type)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            } else if (message.type === 'ai') {
+              return (
+                <div key={index} className="flex justify-start animate-fade-in mb-8">
+                  <div className="max-w-5xl w-full">
+                    {/* AI 헤더 */}
+                    <div className="flex items-center space-x-3 mb-4">
+                      {getMessageIcon(message.type)}
+                      <div className="flex items-center space-x-2">
+                        <span className="text-lg font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                          무신사 쇼핑 AI
+                        </span>
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+                          <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                          <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* AI 응답 카드 */}
+                    <div className={`${getMessageStyle(message.type, message.metadata)} rounded-3xl overflow-hidden`}>
+                      <div className="p-8">
+                        <div className="prose prose-invert prose-lg max-w-none">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            rehypePlugins={[rehypeHighlight]}
+                            components={{
+                              // Custom styling for markdown elements
+                              h1: ({node, ...props}) => (
+                                <h1 className="text-3xl font-bold text-white mb-6 pb-3 border-b border-gray-600/40 flex items-center space-x-3" {...props}>
+                                  <span className="text-2xl">🎯</span>
+                                  <span>{props.children}</span>
+                                </h1>
+                              ),
+                              h2: ({node, ...props}) => (
+                                <h2 className="text-2xl font-bold text-gray-100 mb-5 mt-8 flex items-center space-x-3" {...props}>
+                                  {/* <span className="text-xl">🔍</span> */}
+                                  <span>{props.children}</span>
+                                </h2>
+                              ),
+                              h3: ({node, ...props}) => (
+                                <h3 className="text-xl font-semibold text-gray-200 mb-4 mt-6 flex items-center space-x-2" {...props}>
+                                  {/* <span className="text-lg">🏆</span> */}
+                                  <span>{props.children}</span>
+                                </h3>
+                              ),
+                              h4: ({node, ...props}) => (
+                                <h4 className="text-lg font-semibold text-gray-200 mb-3 mt-5 flex items-center space-x-2" {...props}>
+                                  {/* <span className="text-base">{/1순위|🥇/.test(props.children?.toString() || '') ? '🥇' : /2순위|🥈/.test(props.children?.toString() || '') ? '🥈' : /3순위|🥉/.test(props.children?.toString() || '') ? '🥉' : '💡'}</span> */}
+                                  <span>{props.children}</span>
+                                </h4>
+                              ),
+                              p: ({node, ...props}) => <p className="text-gray-200 mb-4 leading-relaxed" {...props} />,
+                              ul: ({node, ...props}) => <ul className="text-gray-200 space-y-2 ml-4 mb-4" {...props} />,
+                              ol: ({node, ...props}) => <ol className="text-gray-200 space-y-2 ml-4 mb-4" {...props} />,
+                              li: ({node, ...props}) => <li className="text-gray-200 flex items-start space-x-2" {...props} />,
+                              strong: ({node, ...props}) => <strong className="text-white font-bold" {...props} />,
+                              em: ({node, ...props}) => <em className="text-blue-300 italic font-medium" {...props} />,
+                              code: ({node, ...props}) => <code className="bg-gray-700/60 text-cyan-300 px-2 py-1 rounded-md font-mono text-sm" {...props} />,
+                              pre: ({node, ...props}) => (
+                                <pre className="bg-gray-800/60 border border-gray-600/40 rounded-xl p-6 overflow-x-auto backdrop-blur-sm mb-4" {...props} />
+                              ),
+                              blockquote: ({node, ...props}) => (
+                                <blockquote className="border-l-4 border-purple-500/60 pl-6 text-gray-300 italic bg-gray-800/30 py-4 rounded-r-xl mb-4" {...props} />
+                              ),
+                              table: ({node, ...props}) => (
+                                <div className="overflow-x-auto mb-6">
+                                  <div className="bg-gray-800/40 rounded-xl border border-gray-600/40 overflow-hidden">
+                                    <table className="min-w-full" {...props} />
+                                  </div>
+                                </div>
+                              ),
+                              th: ({node, ...props}) => <th className="bg-gray-700/60 text-gray-100 px-6 py-4 text-left font-bold" {...props} />,
+                              td: ({node, ...props}) => <td className="border-t border-gray-600/40 px-6 py-4 text-gray-200" {...props} />,
+                              a: ({node, href, children, ...props}) => {
+                                const childText = children?.toString() || '';
+                                
+                                // 구매하기 또는 SHOP NOW 링크인 경우 특별한 버튼 스타일 적용
+                                if (childText.includes('SHOP NOW') || childText.includes('구매하기')) {
+                                  return (
+                                    <div className="my-8 flex justify-center space-x-4">
+                                      <a
+                                        href={href}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="group relative inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 border border-blue-500/40 backdrop-blur-sm"
+                                        {...props}
+                                      >
+                                        <div className="flex items-center space-x-3">
+                                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                          </svg>
+                                          <span className="text-lg">구매하기</span>
+                                        </div>
+                                      </a>
+                                      
+                                      {/* 바로결제 버튼 */}
+                                      <a
+                                        href={href}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="group relative inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-300 hover:to-yellow-400 text-gray-900 font-bold rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-yellow-400/40 border border-yellow-500/50 backdrop-blur-sm"
+                                      >
+                                        <div className="flex items-center space-x-3">
+                                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                          </svg>
+                                          <span className="text-lg">바로결제</span>
+                                        </div>
+                                      </a>
+                                    </div>
+                                  );
+                                }
+                                // 일반 링크는 기본 스타일
+                                return <a href={href} className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors font-medium" {...props}>{children}</a>;
+                              },
+                              img: ({node, src, alt, ...props}) => (
+                                <div className="my-6">
+                                  <div className="relative group">
+                                    <img
+                                      src={src}
+                                      alt={alt}
+                                      className="w-full max-w-3xl h-[500px] object-cover rounded-2xl shadow-2xl mx-auto block border border-gray-600/30 transition-transform duration-300 group-hover:scale-105"
+                                      {...props}
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl pointer-events-none"></div>
+                                  </div>
+                                </div>
+                              )
+                            }}
+                          >
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            } else {
+              // system, tool 메시지들
+              return (
+                <div key={index} className="flex justify-center animate-fade-in mb-4">
+                  <div className={`px-4 py-2 rounded-full ${getMessageStyle(message.type, message.metadata)} max-w-md text-center`}>
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="flex-shrink-0">
+                        {getMessageIcon(message.type)}
+                      </div>
+                      <div className="text-sm font-medium">
                         {message.content}
                       </div>
-                    )}
+                    </div>
                     {message.metadata && message.type === 'tool' && (
-                      <details className="mt-3 text-xs opacity-75">
+                      <details className="mt-2 text-xs opacity-75">
                         <summary className="cursor-pointer hover:text-gray-300 transition-colors">상세 정보</summary>
-                        <pre className="mt-2 bg-gray-800/50 p-3 rounded border border-gray-600/30 backdrop-blur-sm font-mono text-xs">
+                        <pre className="mt-2 bg-gray-800/50 p-2 rounded border border-gray-600/30 backdrop-blur-sm font-mono text-xs text-left">
                           {JSON.stringify(message.metadata, null, 2)}
                         </pre>
                       </details>
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
-          ))}
+              );
+            }
+          })}
 
           <div ref={messagesEndRef} />
         </div>
