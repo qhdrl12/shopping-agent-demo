@@ -16,7 +16,7 @@ from ..prompts.system_prompts import PRODUCT_VALIDATION_PROMPT
 class ExtractionNodes:
     """Nodes for product data extraction and validation"""
     
-    def __init__(self, model_name: str = "gpt-4.1-mini"):
+    def __init__(self, model_name: str = "gpt-4.1"):
         self.llm = ChatOpenAI(model=model_name, temperature=0)
     
     def extract_product_data(self, state) -> dict:

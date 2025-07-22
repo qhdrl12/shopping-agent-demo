@@ -17,7 +17,7 @@ from ..prompts.system_prompts import (
 class ResponseNodes:
     """Nodes for generating final responses"""
     
-    def __init__(self, model_name: str = "gpt-4.1-mini"):
+    def __init__(self, model_name: str = "gpt-4.1"):
         self.llm = ChatOpenAI(model=model_name, temperature=0)
     
     def generate_final_response(self, state) -> dict:

@@ -27,7 +27,7 @@ class QueryAnalysisOutput(BaseModel):
 class QueryNodes:
     """Nodes for query analysis and handling with streaming support"""
     
-    def __init__(self, model_name: str = "gpt-4.1-mini"):
+    def __init__(self, model_name: str = "gpt-4.1"):
         self.llm = ChatOpenAI(model=model_name, temperature=0)
         self.streaming_llm = ChatOpenAI(model=model_name, temperature=0, streaming=True)
     
@@ -73,10 +73,10 @@ class QueryNodes:
             ("system", SEARCH_QUERY_OPTIMIZATION_PROMPT),
             ("human", "{query}")
         ])
+
+        query = state["messages"][-1].content
         
-        result = self.llm.invoke(query_prompt.format(
-            query=state["messages"][-1].content,
-        ))
+        result = self.llm.invoke(query_prompt.format(query=query))
         
         try:
             search_queries = json.loads(result.content)
@@ -84,11 +84,13 @@ class QueryNodes:
                 raise ValueError("Search queries should be a list")
             
             search_keywords = search_queries if search_queries else [state["messages"][-1].content]
+            print(f"#TEST LOG ONLY : {search_keywords}")
         except (json.JSONDecodeError, ValueError, KeyError) as e:
             print(f"Search query optimization error: {e}")
             search_keywords = [state["messages"][-1].content if state["messages"] else ""]
         
         return {
-            "search_keywords": search_keywords,
+            "search_keywords": [query],
+            # "search_keywords": search_keywords,
             "current_step": "search_optimized"
         }

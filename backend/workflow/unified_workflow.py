@@ -50,7 +50,7 @@ class WorkflowState(TypedDict):
 class UnifiedShoppingWorkflow:
     """Main workflow class that orchestrates the shopping assistance process"""
     
-    def __init__(self, model_name: str = "gpt-4.1-mini"):
+    def __init__(self, model_name: str = "gpt-4.1"):
         self.query_nodes = QueryNodes(model_name)
         self.search_nodes = SearchNodes()
         self.extraction_nodes = ExtractionNodes(model_name)

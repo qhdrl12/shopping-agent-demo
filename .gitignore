@@ -213,3 +213,6 @@ langsmith_traces/
 
 # Langgraph
 .langgraph_api
+
+# YoYo AI version control directory
+.yoyo/

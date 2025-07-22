@@ -15,5 +15,6 @@ dependencies = [
     "langgraph-sdk>=0.1.73",
     "pydantic>=2.11.7",
     "python-dotenv>=1.1.1",
+    "superclaude>=3.0.0.1",
     "uvicorn>=0.35.0",
 ]

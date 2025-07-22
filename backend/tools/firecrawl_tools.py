@@ -266,7 +266,7 @@ def extract_product_info(url: str) -> str:
                 "images": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Product image URLs (main product images)"
+                    "description": "Product image URLs - extract ALL product images including main image, detail shots, model wearing shots, color variations. Return as many relevant images as available."
                 },
                 "rating": {
                     "type": "number",
@@ -286,6 +286,10 @@ def extract_product_info(url: str) -> str:
                     "items": {"type": "string"},
                     "description": "Key product features"
                 },
+                "review_count": {
+                    "type": "number",
+                    "description": "Number of customer reviews"
+                },
             },
             "required": ["name", "price"]
         }
@@ -295,7 +299,18 @@ def extract_product_info(url: str) -> str:
             url, 
             formats=["extract"],
             extract={
-                "prompt": """Extract key product information: name, price, original_price, discount_info, shipping_info, size_info, stock_status. Return as JSON with only available fields.""",
+                "prompt": """Extract key product information: name, price, original_price, discount_info, reward_points (적립금/포인트), shipping_info, size_info, stock_status, images, rating, review_count. 
+                
+                IMPORTANT for images: Extract ALL product images including:
+                - Main product image
+                - Detail shots showing product features
+                - Model wearing the product (if available)
+                - Different color variations
+                - Multiple angles/views of the product
+                
+                Look for reward points information typically displayed near the price section as '적립금' or '포인트'.
+                Look for rating information (stars or numerical score) and review count (리뷰, 후기 등).
+                Return as JSON with only available fields.""",
                 "schema": product_schema
             },
             only_main_content=True,
