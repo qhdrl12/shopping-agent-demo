@@ -140,7 +140,7 @@ class SearchNodes:
         except Exception:
             return False
     
-    # TODO 해당 로직 점거 필요. 불필요하다면 제거 후 Optimzation 으로 변환
+    # TODO 해당 로직 점거 필요. 불필요하다면 제거 후 Optimzation 으로 변환 (2025-07-22)
     def _expand_query(self, original_query: str) -> List[str]:
         """
         Expand search query with related terms and variations

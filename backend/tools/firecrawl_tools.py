@@ -169,7 +169,7 @@ def scrape_product_page(query: str) -> List[str]:
             wait_for=1500,  # Reduced wait time for faster response
             only_main_content=True  # Focus on main content to reduce processing time
         )
-        print(f"Scraping completed for result: {result}")
+        # print(f"Scraping completed for result: {result}")
         
         # Extract product links from HTML
         html_content = result.html if hasattr(result, 'html') else ''

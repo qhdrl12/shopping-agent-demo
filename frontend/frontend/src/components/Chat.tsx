@@ -511,7 +511,58 @@ export default function Chat() {
                             ),
                             th: ({node, ...props}) => <th className="bg-gray-700/50 text-gray-200 px-4 py-2 text-left font-semibold" {...props} />,
                             td: ({node, ...props}) => <td className="border-t border-gray-600/30 px-4 py-2 text-gray-300" {...props} />,
-                            a: ({node, ...props}) => <a className="text-blue-400 hover:text-blue-300 underline transition-colors" {...props} />
+                            a: ({node, href, children, ...props}) => {
+                              const childText = children?.toString() || '';
+                              
+                              // 구매하기 또는 SHOP NOW 링크인 경우 특별한 버튼 스타일 적용
+                              if (childText.includes('SHOP NOW') || childText.includes('구매하기')) {
+                                return (
+                                  <div className="my-6 flex justify-center space-x-4">
+                                    <a
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="group relative inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-xl border border-blue-500/30 backdrop-blur-sm"
+                                      {...props}
+                                    >
+                                      <div className="flex items-center space-x-2">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                        </svg>
+                                        <span>구매하기</span>
+                                      </div>
+                                    </a>
+                                    
+                                    {/* 바로결제 버튼 (테스트용) */}
+                                    <a
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="group relative inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-xl border border-emerald-500/30 backdrop-blur-sm"
+                                    >
+                                      <div className="flex items-center space-x-2">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg>
+                                        <span>바로결제</span>
+                                      </div>
+                                    </a>
+                                  </div>
+                                );
+                              }
+                              // 일반 링크는 기본 스타일
+                              return <a href={href} className="text-blue-400 hover:text-blue-300 underline transition-colors" {...props}>{children}</a>;
+                            },
+                            img: ({node, src, alt, ...props}) => (
+                              <div className="my-4">
+                                <img
+                                  src={src}
+                                  alt={alt}
+                                  className="w-full max-w-2xl h-[640px] object-cover rounded-xl shadow-lg mx-auto block"
+                                  {...props}
+                                />
+                              </div>
+                            )
                           }}
                         >
                           {message.content}
