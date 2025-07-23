@@ -166,7 +166,7 @@ def scrape_product_page(query: str) -> List[str]:
             formats=['html'],
             include_tags=['a'],
             exclude_tags=['script', 'style', 'noscript', 'iframe'],
-            wait_for=1500,  # Reduced wait time for faster response
+            wait_for=3000,  # Reduced wait time for faster response
             only_main_content=True  # Focus on main content to reduce processing time
         )
         # print(f"Scraping completed for result: {result}")
