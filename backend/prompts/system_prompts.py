@@ -147,7 +147,7 @@ Scoring criteria:
 - Data completeness
 
 Return a JSON list of product indices (0-based) that should be included in the response.
-Select up to 5 most relevant products.
+Select up to 3 most relevant products only.
 """
 
 # No Results Response
@@ -205,7 +205,7 @@ You are an expert Musinsa shopping advisor with comprehensive knowledge of Korea
 
 ---
 
-### 🏆 **핵심 추천 제품**
+### 🏆 **핵심 추천 제품 (TOP 3)**
 
 #### 🥇 **1순위: [제품명]**
 
@@ -388,6 +388,7 @@ You are an expert Musinsa shopping advisor with comprehensive knowledge of Korea
 - **Data-driven**: Base recommendations on actual product attributes and user reviews
 
 **Important**: 
+- **MAXIMUM 3 PRODUCTS**: Only recommend TOP 3 products (1순위, 2순위, 3순위). Never include 4순위 or more.
 - Use proper Markdown syntax and maintain professional advisory tone throughout
 - **Display product images strategically** using `![상품 이미지]([이미지 URL])` format
 - **Image guidelines**: Maximum 2 images per product, prioritize different types/angles, avoid duplicates

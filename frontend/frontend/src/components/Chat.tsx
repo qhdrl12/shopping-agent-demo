@@ -11,6 +11,8 @@ interface Message {
   type: 'user' | 'ai' | 'tool' | 'system';
   content: string;
   metadata?: any;
+  processSteps?: ProcessStep[];
+  requestId?: string;
 }
 
 interface ProcessStep {
@@ -26,6 +28,7 @@ interface ChatState {
   sessionId: string | null;
   currentStreamingMessageId: string | null;
   processSteps: ProcessStep[];
+  currentRequestId: string | null;
 }
 
 export default function Chat() {
@@ -34,10 +37,12 @@ export default function Chat() {
     isLoading: false,
     sessionId: null,
     currentStreamingMessageId: null,
-    processSteps: []
+    processSteps: [],
+    currentRequestId: null
   });
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [imageCarousels, setImageCarousels] = useState<{[key: string]: number}>({});
 
   // Define process steps with their display info
   const getProcessSteps = (): ProcessStep[] => [
@@ -51,9 +56,262 @@ export default function Chat() {
     { id: 'generate_final_response', label: '답변 생성', status: 'pending' }
   ];
 
-  // Render process steps component
-  const renderProcessSteps = () => {
-    if (chatState.processSteps.length === 0) return null;
+  // Image carousel component
+  const ImageCarousel = ({ images, messageId }: { images: string[], messageId: string }) => {
+    const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+    const [loadingImages, setLoadingImages] = useState<Set<string>>(new Set());
+    
+    console.log('ImageCarousel rendering with:', { images, messageId, imagesLength: images.length });
+    
+    // Filter out failed images and invalid URLs
+    const validImages = images.filter(img => {
+      if (!img || failedImages.has(img)) return false;
+      // Basic URL validation
+      try {
+        new URL(img);
+        return true;
+      } catch {
+        console.log('Invalid URL detected:', img);
+        return false;
+      }
+    });
+    
+    // Get current index and ensure it's within bounds of valid images
+    let currentIndex = imageCarousels[messageId] || 0;
+    if (currentIndex >= validImages.length) {
+      currentIndex = Math.max(0, validImages.length - 1);
+      setImageCarousels(prev => ({
+        ...prev,
+        [messageId]: currentIndex
+      }));
+    }
+    
+    const handleImageError = (imageSrc: string) => {
+      console.log('Image failed to load:', imageSrc);
+      setFailedImages(prev => new Set([...prev, imageSrc]));
+      setLoadingImages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(imageSrc);
+        return newSet;
+      });
+    };
+    
+    const handleImageLoad = (imageSrc: string) => {
+      console.log('Image loaded successfully:', imageSrc);
+      setLoadingImages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(imageSrc);
+        return newSet;
+      });
+    };
+    
+    const handleImageStart = (imageSrc: string) => {
+      console.log('Image loading started:', imageSrc);
+      setLoadingImages(prev => new Set([...prev, imageSrc]));
+    };
+    
+    const nextImage = () => {
+      setImageCarousels(prev => ({
+        ...prev,
+        [messageId]: (currentIndex + 1) % validImages.length
+      }));
+    };
+    
+    const prevImage = () => {
+      setImageCarousels(prev => ({
+        ...prev,
+        [messageId]: currentIndex === 0 ? validImages.length - 1 : currentIndex - 1
+      }));
+    };
+    
+    const goToImage = (index: number) => {
+      setImageCarousels(prev => ({
+        ...prev,
+        [messageId]: index
+      }));
+    };
+
+    // Keyboard navigation
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          prevImage();
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          nextImage();
+        }
+      };
+
+      // Only add event listener if this carousel is visible
+      const carouselElement = document.getElementById(`carousel-${messageId}`);
+      if (carouselElement) {
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+      }
+    }, [messageId, currentIndex]);
+
+    if (validImages.length === 0) return null;
+    if (validImages.length === 1) {
+      // Single image - use original styling
+      return (
+        <div className="my-6">
+          <div className="relative group">
+            {loadingImages.has(validImages[0]) && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 rounded-2xl z-10">
+                <div className="w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+              </div>
+            )}
+            <img
+              src={validImages[0]}
+              alt="Product image"
+              className="w-full max-w-4xl h-[600px] object-cover rounded-2xl shadow-2xl mx-auto block border border-gray-600/30 transition-transform duration-300 group-hover:scale-105"
+              onLoad={() => handleImageLoad(validImages[0])}
+              onError={() => handleImageError(validImages[0])}
+              onLoadStart={() => handleImageStart(validImages[0])}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl pointer-events-none"></div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="my-8" id={`carousel-${messageId}`}>
+        <div className="relative max-w-5xl mx-auto">
+          {/* Main carousel container */}
+          <div className="relative overflow-hidden rounded-2xl shadow-2xl border border-gray-600/30">
+            <div className="relative h-[600px] bg-gray-900/50">
+              {loadingImages.has(validImages[currentIndex]) && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 z-10">
+                  <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                </div>
+              )}
+              <img
+                src={validImages[currentIndex]}
+                alt={`Product image ${currentIndex + 1} of ${validImages.length}`}
+                className="w-full h-full object-cover transition-opacity duration-500"
+                onLoad={() => handleImageLoad(validImages[currentIndex])}
+                onError={() => handleImageError(validImages[currentIndex])}
+                onLoadStart={() => handleImageStart(validImages[currentIndex])}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none"></div>
+              
+              {/* Navigation arrows */}
+              {validImages.length > 1 && (
+                <>
+                  <button
+                    onClick={prevImage}
+                    className="absolute left-4 top-1/2 transform -translate-y-1/2 w-12 h-12 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm border border-white/20"
+                  >
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={nextImage}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 w-12 h-12 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm border border-white/20"
+                  >
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </>
+              )}
+              
+              {/* Image counter */}
+              <div className="absolute top-4 right-4 bg-black/50 text-white text-sm px-3 py-1 rounded-full backdrop-blur-sm border border-white/20">
+                {currentIndex + 1} / {validImages.length}
+              </div>
+            </div>
+          </div>
+          
+          {/* Thumbnail navigation */}
+          {validImages.length > 1 && (
+            <div className="flex justify-center mt-4 space-x-2 overflow-x-auto pb-2">
+              {validImages.map((image, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToImage(index)}
+                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                    index === currentIndex 
+                      ? 'border-blue-500 ring-2 ring-blue-500/30' 
+                      : 'border-gray-600 hover:border-gray-400'
+                  }`}
+                >
+                  <img
+                    src={image}
+                    alt={`Thumbnail ${index + 1}`}
+                    className="w-full h-full object-cover"
+                    onLoad={() => handleImageLoad(image)}
+                    onError={() => handleImageError(image)}
+                    onLoadStart={() => handleImageStart(image)}
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+          
+          {/* Dots indicator for mobile */}
+          {validImages.length > 1 && (
+            <div className="flex justify-center mt-3 space-x-2 md:hidden">
+              {validImages.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToImage(index)}
+                  className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                    index === currentIndex ? 'bg-blue-500' : 'bg-gray-600'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Extract images from markdown content
+  const extractImagesFromMarkdown = (content: string): string[] => {
+    // Try multiple patterns for image extraction
+    const imagePatterns = [
+      /!\[.*?\]\((.*?)\)/g,           // Standard markdown: ![alt](url)
+      /!\[(.*?)\]\((.*?)\)/g,         // Standard markdown with alt text
+      /<img[^>]+src="([^"]*)"[^>]*>/g, // HTML img tags
+      /https?:\/\/[^\s)]+\.(?:jpg|jpeg|png|gif|webp)(?:\?[^\s)]*)?/gi // Direct image URLs
+    ];
+    
+    const images: string[] = [];
+    
+    console.log('Extracting images from content:', content);
+    
+    // Try each pattern
+    for (const pattern of imagePatterns) {
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        // For different patterns, the URL might be in different capture groups
+        const url = match[1] || match[2] || match[0];
+        if (url && !images.includes(url)) {
+          console.log('Found image:', url);
+          images.push(url);
+        }
+      }
+      // Reset regex lastIndex for next pattern
+      pattern.lastIndex = 0;
+    }
+    
+    console.log('Total images found:', images.length, images);
+    return images;
+  };
+
+  // Simple function to extract all images and let them render individually
+  const getImagesForCarousel = (content: string): string[] => {
+    return extractImagesFromMarkdown(content);
+  };
+
+  // Render process steps component for a specific message
+  const renderProcessSteps = (steps: ProcessStep[]) => {
+    if (!steps || steps.length === 0) return null;
 
     return (
       <div className="mb-6">
@@ -68,7 +326,7 @@ export default function Chat() {
           </div>
           
           <div className="space-y-3">
-            {chatState.processSteps.map((step) => (
+            {steps.map((step) => (
               <div key={step.id} className="flex items-center space-x-4 animate-fade-in">
                 <div className="flex-shrink-0">
                   {step.status === 'completed' && (
@@ -137,26 +395,30 @@ export default function Chat() {
   const sendMessage = async () => {
     if (!input.trim() || chatState.isLoading) return;
 
+    const requestId = Date.now().toString();
+    const initialSteps = getProcessSteps();
+    // Mark the first step as running
+    initialSteps[0].status = 'running';
+
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: requestId,
       type: 'user',
-      content: input.trim()
+      content: input.trim(),
+      processSteps: initialSteps,
+      requestId: requestId
     };
 
     const sessionIdToSend = chatState.sessionId || crypto.randomUUID();
 
     setChatState(prev => {
-      const initialSteps = getProcessSteps();
-      // Mark the first step as running
-      initialSteps[0].status = 'running';
-      
       return {
         ...prev,
         messages: [...prev.messages, userMessage],
         isLoading: true,
         sessionId: sessionIdToSend, // Update session ID in state
         currentStreamingMessageId: null, // Reset streaming message ID for new conversation
-        processSteps: initialSteps // Initialize process steps
+        processSteps: initialSteps, // Keep for current processing
+        currentRequestId: requestId
       };
     });
 
@@ -271,9 +533,18 @@ export default function Chat() {
                     return step;
                   });
                   
+                  // Also update the processSteps in the corresponding user message
+                  const updatedMessages = prev.messages.map(msg => {
+                    if (msg.requestId === prev.currentRequestId && msg.type === 'user') {
+                      return { ...msg, processSteps: updatedSteps };
+                    }
+                    return msg;
+                  });
+
                   return {
                     ...prev,
-                    processSteps: updatedSteps
+                    processSteps: updatedSteps,
+                    messages: updatedMessages
                   };
                 });
               } else if (parsed.type === 'generating_start') {
@@ -299,9 +570,20 @@ export default function Chat() {
                     console.log('Starting new AI response, clearing system messages and process steps');
                     newMessages = newMessages.filter(msg => msg.type !== 'system');
                     
+                    // Mark all steps as completed for the current request
+                    const completedSteps = prev.processSteps.map(step => ({ ...step, status: 'completed' as const }));
+                    
+                    // Update the corresponding user message with completed steps
+                    const updatedMessages = newMessages.map(msg => {
+                      if (msg.requestId === prev.currentRequestId && msg.type === 'user') {
+                        return { ...msg, processSteps: completedSteps };
+                      }
+                      return msg;
+                    });
+                    
                     // Create new AI message for this streaming session
                     const newMessageId = Date.now().toString() + '_ai';
-                    newMessages.push({
+                    updatedMessages.push({
                       id: newMessageId,
                       type: 'ai',
                       content: parsed.content
@@ -309,7 +591,7 @@ export default function Chat() {
                     
                     return { 
                       ...prev, 
-                      messages: newMessages,
+                      messages: updatedMessages,
                       currentStreamingMessageId: newMessageId,
                       processSteps: [] // Clear process steps when AI response starts
                     };
@@ -420,12 +702,24 @@ export default function Chat() {
                     });
                   }
                   
+                  // Mark all steps as completed for the current request
+                  const completedSteps = prev.processSteps.map(step => ({ ...step, status: 'completed' as const }));
+                  
+                  // Update the corresponding user message with completed steps
+                  const finalMessages = newMessages.map(msg => {
+                    if (msg.requestId === prev.currentRequestId && msg.type === 'user') {
+                      return { ...msg, processSteps: completedSteps };
+                    }
+                    return msg;
+                  });
+                  
                   return { 
                     ...prev, 
-                    messages: newMessages,
+                    messages: finalMessages,
                     isLoading: false,
-                    currentStreamingMessageId: null // Reset after completion
-                    // Don't clear process steps here - they should remain until AI response starts
+                    currentStreamingMessageId: null, // Reset after completion
+                    processSteps: [], // Clear global process steps
+                    currentRequestId: null // Reset current request
                   };
                 });
               }
@@ -588,28 +882,41 @@ export default function Chat() {
             </div>
           )}
 
-          {/* Show process steps when available */}
-          {renderProcessSteps()}
 
           {chatState.messages.map((message, index) => {
             if (message.type === 'user') {
               return (
-                <div key={index} className="flex justify-end animate-fade-in mb-6">
-                  <div className={`max-w-2xl px-6 py-4 rounded-3xl ${getMessageStyle(message.type, message.metadata)}`}>
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-white font-medium leading-relaxed">
-                          {message.content}
+                <div key={index} className="animate-fade-in mb-6">
+                  <div className="flex justify-end mb-4">
+                    <div className={`max-w-2xl px-6 py-4 rounded-3xl ${getMessageStyle(message.type, message.metadata)}`}>
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-white font-medium leading-relaxed">
+                            {message.content}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex-shrink-0">
-                        {getMessageIcon(message.type)}
+                        <div className="flex-shrink-0">
+                          {getMessageIcon(message.type)}
+                        </div>
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Show process steps for this user message - only if still processing */}
+                  {message.processSteps && message.processSteps.length > 0 && 
+                   message.processSteps.some(step => step.status === 'running' || step.status === 'pending') && (
+                    <div className="flex justify-start mb-4">
+                      <div className="max-w-4xl w-full">
+                        {renderProcessSteps(message.processSteps)}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             } else if (message.type === 'ai') {
+              const images = getImagesForCarousel(message.content);
+              console.log('AI message images:', images.length, 'found');
+              
               return (
                 <div key={index} className="flex justify-start animate-fade-in mb-8">
                   <div className="max-w-5xl w-full">
@@ -661,7 +968,6 @@ export default function Chat() {
                                   <span>{props.children}</span>
                                 </h4>
                               ),
-                              p: ({node, ...props}) => <p className="text-gray-200 mb-4 leading-relaxed" {...props} />,
                               ul: ({node, ...props}) => <ul className="text-gray-200 space-y-2 ml-4 mb-4" {...props} />,
                               ol: ({node, ...props}) => <ol className="text-gray-200 space-y-2 ml-4 mb-4" {...props} />,
                               li: ({node, ...props}) => <li className="text-gray-200 flex items-start space-x-2" {...props} />,
@@ -725,19 +1031,30 @@ export default function Chat() {
                                 // 일반 링크는 기본 스타일
                                 return <a href={href} className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors font-medium" {...props}>{children}</a>;
                               },
-                              img: ({node, src, alt, ...props}) => (
-                                <div className="my-6">
-                                  <div className="relative group">
-                                    <img
-                                      src={src}
-                                      alt={alt}
-                                      className="w-full max-w-3xl h-[500px] object-cover rounded-2xl shadow-2xl mx-auto block border border-gray-600/30 transition-transform duration-300 group-hover:scale-105"
-                                      {...props}
-                                    />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl pointer-events-none"></div>
+                              p: ({node, ...props}) => <p className="text-gray-200 mb-4 leading-relaxed" {...props} />,
+                              img: ({node, src, alt, ...props}) => {
+                                if (!src) return null;
+                                
+                                // Simple image rendering without carousel overhead
+                                return (
+                                  <div className="my-4">
+                                    <div className="relative group">
+                                      <img
+                                        src={src}
+                                        alt={alt || "Product image"}
+                                        className="w-full max-w-4xl h-[800px] object-cover rounded-2xl shadow-2xl mx-auto block border border-gray-600/30 transition-transform duration-300 group-hover:scale-105"
+                                        loading="lazy"
+                                        onError={(e) => {
+                                          console.log('Image failed to load:', src);
+                                          e.currentTarget.style.display = 'none';
+                                        }}
+                                        {...props}
+                                      />
+                                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl pointer-events-none"></div>
+                                    </div>
                                   </div>
-                                </div>
-                              )
+                                );
+                              }
                             }}
                           >
                             {message.content}

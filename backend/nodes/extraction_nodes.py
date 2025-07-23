@@ -80,10 +80,12 @@ class ExtractionNodes:
                 product_data_list[i] for i in selected_indices 
                 if isinstance(i, int) and 0 <= i < len(product_data_list)
             ]
-            product_data = selected_products if selected_products else product_data_list
+            # Limit to maximum 3 products
+            selected_products = selected_products[:3]
+            product_data = selected_products if selected_products else product_data_list[:3]
         except (json.JSONDecodeError, IndexError, TypeError) as e:
-            print(f"Product selection error: {e}, keeping all products")
-            product_data = state["product_data"]
+            print(f"Product selection error: {e}, keeping first 3 products")
+            product_data = state["product_data"][:3]
         
         return {
             "product_data": product_data,
