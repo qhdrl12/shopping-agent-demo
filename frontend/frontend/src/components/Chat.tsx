@@ -51,6 +51,49 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // 카카오페이 결제 처리 함수
+  const handleKakaoPayment = async (productUrl: string) => {
+    try {
+      // 상품 정보를 URL에서 추출하거나 기본값 설정
+      const productName = "무신사 상품"; // 실제로는 AI 응답에서 상품명을 추출해야 함
+      const totalAmount = 100000; // 실제로는 AI 응답에서 가격을 추출해야 함
+      
+      console.log('Initiating Kakao Pay payment for:', productUrl);
+      
+      // 결제 준비 API 호출
+      const response = await fetch('http://localhost:8000/payment/ready', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_name: productName,
+          product_url: productUrl,
+          quantity: 1,
+          total_amount: totalAmount,
+          tax_free_amount: 0
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('결제 준비 요청이 실패했습니다.');
+      }
+
+      const paymentData = await response.json();
+      console.log('Payment ready response:', paymentData);
+
+      // 카카오페이 결제창으로 리다이렉트
+      if (paymentData.next_redirect_pc_url) {
+        window.location.href = paymentData.next_redirect_pc_url;
+      } else {
+        throw new Error('결제 URL을 받을 수 없습니다.');
+      }
+    } catch (error) {
+      console.error('Kakao Pay error:', error);
+      alert('결제 처리 중 오류가 발생했습니다. ' + (error as Error).message);
+    }
+  };
+
   // Define unified process steps - same for all requests but different execution paths
   const getProcessSteps = (): ProcessStep[] => {
     return [
@@ -970,10 +1013,11 @@ export default function Chat() {
                                       </a>
                                       
                                       {/* 바로결제 버튼 */}
-                                      <a
-                                        href={href}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          handleKakaoPayment(href || '');
+                                        }}
                                         className="group relative inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-yellow-400/90 via-amber-400/90 to-orange-400/90 hover:from-yellow-300 hover:via-amber-300 hover:to-orange-300 text-black font-bold rounded-2xl transition-all duration-500 transform hover:scale-105 hover:shadow-xl hover:shadow-yellow-400/40 border border-yellow-300/50 hover:border-yellow-200/70 backdrop-blur-lg relative overflow-hidden"
                                       >
                                         <div className="absolute inset-0 bg-gradient-to-r from-yellow-200/20 via-amber-200/20 to-orange-200/20 animate-pulse"></div>
@@ -985,7 +1029,7 @@ export default function Chat() {
                                           </div>
                                           <span className="text-base font-bold tracking-wide">바로결제</span>
                                         </div>
-                                      </a>
+                                      </button>
                                     </div>
                                   );
                                 }
