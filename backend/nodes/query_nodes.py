@@ -78,42 +78,61 @@ class QueryNodes:
     
     def __init__(self, model_name: str = "gpt-4.1"):
         self.llm = load_chat_model(model_name)
-        # self.llm = ChatOpenAI(model=model_name, temperature=0)
     
     def analyze_query(self, state) -> dict:
         """Analyze user query to determine if search is needed"""
         
-        analysis_prompt = ChatPromptTemplate.from_messages([
-            ("system", QUERY_ANALYSIS_PROMPT),
-            ("user", "{query}")
-        ])
-        
-        # Use structured output to ensure only valid responses
-        structured_llm = self.llm.with_structured_output(QueryAnalysisOutput)
-        result = structured_llm.invoke(analysis_prompt.format(query=state["messages"][-1].content))
-        
-        return {
-            "query_type": result.query_type,
-            "current_step": "query_analyzed"
-        }
+        try:
+            analysis_prompt = ChatPromptTemplate.from_messages([
+                ("system", QUERY_ANALYSIS_PROMPT),
+                ("user", "{query}")
+            ])
+            
+            # Use structured output to ensure only valid responses
+            structured_llm = self.llm.with_structured_output(QueryAnalysisOutput)
+            result = structured_llm.invoke(analysis_prompt.format_messages(query=state["messages"][-1].content))            
+            print(f"Query analysis result: {result.query_type}")
+            
+            return {
+                "query_type": result.query_type,
+                "current_step": "query_analyzed"
+            }
+        except Exception as e:
+            print(f"Error in analyze_query: {e}")
+            # Default to general for any parsing errors - safer and simpler
+            print("Using fallback classification: general")
+            return {
+                "query_type": "general",
+                "current_step": "query_analyzed"
+            }
     
     def handle_general_query(self, state) -> dict:
         """Handle general queries using conversation history"""
         
-        general_prompt = ChatPromptTemplate.from_messages([
-            ("system", GENERAL_QUERY_PROMPT),
-            MessagesPlaceholder(variable_name="messages"),
-        ])
-        
-        result = self.llm.invoke(general_prompt.format_messages(
-            messages=state["messages"]
-        ))
-        
-        return {
-            "final_response": result.content,
-            "messages": [AIMessage(content=result.content)],
-            "current_step": "completed"
-        }
+        try:
+            general_prompt = ChatPromptTemplate.from_messages([
+                ("system", GENERAL_QUERY_PROMPT),
+                MessagesPlaceholder(variable_name="messages"),
+            ])
+            
+            result = self.llm.invoke(general_prompt.format_messages(
+                messages=state["messages"]
+            ))
+            
+            print(f"General query result: {result.content[:100]}...")
+            
+            return {
+                "final_response": result.content,
+                "messages": [AIMessage(content=result.content)],
+                "current_step": "completed"
+            }
+        except Exception as e:
+            print(f"Error in handle_general_query: {e}")
+            return {
+                "final_response": "안녕하세요! 무엇을 도와드릴까요?",
+                "messages": [AIMessage(content="안녕하세요! 무엇을 도와드릴까요?")],
+                "current_step": "completed"
+            }
     
     # TODO 검색어 최적화를 위한 optimizer로 개선
     def optimize_search_query(self, state) -> dict:
@@ -151,15 +170,23 @@ class QueryNodes:
             ("human", "{query}")
         ])
 
-        structured_llm = self.llm.with_structured_output(QueryOptimizationOutput)
-        result = structured_llm.invoke(query_prompt.format(query=state["messages"][-1].content))
-        
-        # seach_terms = result.content
-        # print(f"#TEST LOG ONLY : {seach_terms}")
-        
-        return {
-            "search_query": result.search_query,
-            "search_parameters": result.search_parameters,
-            # "optimized_search_terms": seach_terms,
-            "current_step": "search_optimized"
-        }
+        try:
+            structured_llm = self.llm.with_structured_output(QueryOptimizationOutput)
+            result = structured_llm.invoke(query_prompt.format(query=state["messages"][-1].content))
+            
+            print(f"Search query optimization result: {result.search_query}, parameters: {result.search_parameters}")
+            
+            return {
+                "search_query": result.search_query,
+                "search_parameters": result.search_parameters,
+                "current_step": "search_optimized"
+            }
+        except Exception as e:
+            print(f"Error in optimize_search_query: {e}")
+            # Extract basic search terms as fallback
+            user_query = state["messages"][-1].content
+            return {
+                "search_query": user_query,
+                "search_parameters": "",
+                "current_step": "search_optimized"
+            }

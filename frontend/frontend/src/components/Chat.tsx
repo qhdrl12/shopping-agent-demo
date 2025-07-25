@@ -29,6 +29,7 @@ interface ChatState {
   currentStreamingMessageId: string | null;
   processSteps: ProcessStep[];
   currentRequestId: string | null;
+  workflowType: 'general' | 'search' | null;
 }
 
 export default function Chat() {
@@ -38,23 +39,26 @@ export default function Chat() {
     sessionId: null,
     currentStreamingMessageId: null,
     processSteps: [],
-    currentRequestId: null
+    currentRequestId: null,
+    workflowType: null
   });
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [imageCarousels, setImageCarousels] = useState<{[key: string]: number}>({});
 
-  // Define process steps with their display info
-  const getProcessSteps = (): ProcessStep[] => [
-    { id: 'start', label: '처리 시작', status: 'pending' },
-    { id: 'analyze_query', label: '질문 분석', status: 'pending' },
-    { id: 'optimize_search_query', label: '검색어 최적화', status: 'pending' },
-    { id: 'search_products', label: '제품 검색', status: 'pending', isLongRunning: true },
-    { id: 'filter_product_links', label: '검색 결과 필터링', status: 'pending' },
-    { id: 'extract_product_data', label: '상품 상세정보 수집', status: 'pending', isLongRunning: true },
-    { id: 'validate_and_select', label: '제품 정보 검증', status: 'pending' },
-    { id: 'generate_final_response', label: '답변 생성', status: 'pending' }
-  ];
+  // Define unified process steps - same for all requests but different execution paths
+  const getProcessSteps = (): ProcessStep[] => {
+    return [
+      { id: 'start', label: '요청 처리 시작', status: 'pending' },
+      { id: 'analyze_query', label: '사용자 의도 파악', status: 'pending' },
+      { id: 'optimize_search_query', label: '무신사 검색 최적화', status: 'pending' },
+      { id: 'search_products', label: '상품 데이터 수집', status: 'pending', isLongRunning: true },
+      { id: 'filter_product_links', label: '관련 상품 필터링', status: 'pending' },
+      { id: 'extract_product_data', label: '상세 정보 추출', status: 'pending', isLongRunning: true },
+      { id: 'validate_and_select', label: '최적 상품 선별', status: 'pending' },
+      { id: 'generate_final_response', label: '답변 생성', status: 'pending' }
+    ];
+  };
 
   // Image carousel component
   const ImageCarousel = ({ images, messageId }: { images: string[], messageId: string }) => {
@@ -283,8 +287,6 @@ export default function Chat() {
     
     const images: string[] = [];
     
-    console.log('Extracting images from content:', content);
-    
     // Try each pattern
     for (const pattern of imagePatterns) {
       let match;
@@ -292,15 +294,12 @@ export default function Chat() {
         // For different patterns, the URL might be in different capture groups
         const url = match[1] || match[2] || match[0];
         if (url && !images.includes(url)) {
-          console.log('Found image:', url);
           images.push(url);
         }
       }
       // Reset regex lastIndex for next pattern
       pattern.lastIndex = 0;
     }
-    
-    console.log('Total images found:', images.length, images);
     return images;
   };
 
@@ -326,58 +325,70 @@ export default function Chat() {
           </div>
           
           <div className="space-y-3">
-            {steps.map((step) => (
-              <div key={step.id} className="flex items-center space-x-4 animate-fade-in">
-                <div className="flex-shrink-0">
-                  {step.status === 'completed' && (
-                    <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
-                  {step.status === 'running' && (
-                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
-                      {step.isLongRunning ? (
-                        <div className="flex space-x-1">
-                          <div className="w-1 h-1 bg-white rounded-full animate-pulse"></div>
-                          <div className="w-1 h-1 bg-white rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                          <div className="w-1 h-1 bg-white rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
-                        </div>
-                      ) : (
-                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      )}
-                    </div>
-                  )}
-                  {step.status === 'pending' && (
-                    <div className="w-6 h-6 rounded-full bg-gray-500 flex items-center justify-center">
-                      <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-                    </div>
-                  )}
-                </div>
+            {steps.map((step, index) => {
+              // Step-specific icons
+              const getStepIcon = (stepId: string, status: string) => {
+                const iconMap: {[key: string]: string} = {
+                  'start': '🚀',
+                  'analyze_query': '🧠',
+                  'optimize_search_query': '🔍',
+                  'search_products': '🛍️',
+                  'filter_product_links': '⚡',
+                  'extract_product_data': '📋',
+                  'validate_and_select': '✨',
+                  'generate_final_response': '🎯'
+                };
                 
-                <div className="flex-1">
-                  <div className={`text-sm font-medium ${
-                    step.status === 'completed' ? 'text-emerald-300' :
-                    step.status === 'running' ? 'text-blue-300' : 'text-gray-400'
-                  }`}>
-                    {step.label}
-                    {step.status === 'running' && step.isLongRunning && (
-                      <span className="ml-2 text-xs text-gray-400">(처리 중...)</span>
+                if (status === 'completed') return '✅';
+                if (status === 'running') return iconMap[stepId] || '⚙️';
+                return '⚪';
+              };
+
+              return (
+                <div key={step.id} className="flex items-center space-x-3 animate-fade-in">
+                  <div className="flex-shrink-0">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 ${
+                      step.status === 'completed' ? 'bg-emerald-500/20 border-2 border-emerald-500' :
+                      step.status === 'running' ? 'bg-blue-500/20 border-2 border-blue-500 animate-pulse' :
+                      'bg-gray-500/20 border-2 border-gray-500'
+                    }`}>
+                      <span className="text-xs">
+                        {getStepIcon(step.id, step.status)}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-sm font-medium transition-colors duration-300 ${
+                      step.status === 'completed' ? 'text-emerald-300' :
+                      step.status === 'running' ? 'text-blue-300' : 'text-gray-400'
+                    }`}>
+                      {step.label}
+                    </div>
+                    {step.status === 'running' && (
+                      <div className="flex items-center space-x-2 mt-1">
+                        <div className={`h-1 rounded-full bg-blue-500/30 overflow-hidden ${
+                          step.isLongRunning ? 'w-20' : 'w-14'
+                        }`}>
+                          <div className="h-full bg-blue-500 animate-pulse w-full"></div>
+                        </div>
+                        {step.isLongRunning && (
+                          <span className="text-xs text-blue-400">처리 중...</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex-shrink-0">
+                    {step.status === 'running' && (
+                      <div className="flex items-center space-x-1 text-xs text-blue-400">
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
+                      </div>
                     )}
                   </div>
                 </div>
-                
-                <div className="flex-shrink-0">
-                  {step.status === 'running' && step.isLongRunning && (
-                    <div className="flex items-center space-x-1 text-xs text-gray-400">
-                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
-                      <span>진행중</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -396,7 +407,7 @@ export default function Chat() {
     if (!input.trim() || chatState.isLoading) return;
 
     const requestId = Date.now().toString();
-    const initialSteps = getProcessSteps();
+    const initialSteps = getProcessSteps(); // Get unified steps for all requests
     // Mark the first step as running
     initialSteps[0].status = 'running';
 
@@ -418,7 +429,8 @@ export default function Chat() {
         sessionId: sessionIdToSend, // Update session ID in state
         currentStreamingMessageId: null, // Reset streaming message ID for new conversation
         processSteps: initialSteps, // Keep for current processing
-        currentRequestId: requestId
+        currentRequestId: requestId,
+        workflowType: null // Reset workflow type for each new request
       };
     });
 
@@ -469,6 +481,12 @@ export default function Chat() {
             }
             
             try {
+              // Skip empty or invalid data lines
+              if (!data || data.trim() === '') {
+                console.log('Skipping empty data line');
+                continue;
+              }
+              
               const parsed = JSON.parse(data);
               console.log('Parsed data:', parsed); // 디버깅 로그
               
@@ -491,44 +509,126 @@ export default function Chat() {
                 const isCompletion = stepId.includes('_') && !['analyze_query', 'optimize_search_query', 'search_products', 'filter_product_links', 'extract_product_data', 'validate_and_select', 'generate_final_response', 'handle_general_query'].includes(stepId);
                 
                 setChatState(prev => {
+                  // Detect workflow type and update steps accordingly
+                  let workflowType = prev.workflowType;
+                  let stepsToUse = [...prev.processSteps]; // Create a copy to avoid mutation
+                  
+                  // If we hit handle_general_query, this is a general workflow
+                  if (stepId === 'handle_general_query' && prev.workflowType !== 'general') {
+                    console.log('Detected general workflow - fast-forwarding to final response');
+                    workflowType = 'general';
+                    
+                    // Fast-forward: Complete all intermediate steps and jump to final response
+                    stepsToUse = stepsToUse.map(step => {
+                      if (['start', 'analyze_query', 'optimize_search_query', 'search_products', 'filter_product_links', 'extract_product_data', 'validate_and_select'].includes(step.id)) {
+                        return { ...step, status: 'completed' as const };
+                      }
+                      if (step.id === 'generate_final_response') {
+                        return { ...step, status: 'running' as const };
+                      }
+                      return step;
+                    });
+                  }
+                  // If we hit optimize_search_query, this is a search workflow
+                  else if (stepId === 'optimize_search_query' && prev.workflowType !== 'search') {
+                    console.log('Detected search workflow - proceeding step by step');
+                    workflowType = 'search';
+                    // Continue with normal step processing
+                  }
+                  
+                  // Define step order based on workflow type
+                  const stepOrder = workflowType === 'general' 
+                    ? ['start', 'analyze_query', 'generate_final_response'] // General: skip intermediate steps
+                    : ['start', 'analyze_query', 'optimize_search_query', 'search_products', 'filter_product_links', 'extract_product_data', 'validate_and_select', 'generate_final_response']; // Search: all steps
+                  
+                  // Skip step processing if we already fast-forwarded for general workflow
+                  let updatedSteps = stepsToUse;
+                  
+                  if (workflowType !== 'general' || stepId !== 'handle_general_query') {
+                    updatedSteps = stepsToUse.map(step => {
+                      const currentStepIndex = stepOrder.indexOf(stepId);
+                      const thisStepIndex = stepOrder.indexOf(step.id);
+                      
+                      // Special handling for analyze_query to show immediate progression
+                      if (stepId === 'analyze_query') {
+                        if (step.id === 'start') {
+                          return { ...step, status: 'completed' as const };
+                        }
+                        if (step.id === 'analyze_query') {
+                          return { ...step, status: 'running' as const };
+                        }
+                        return step;
+                      }
+                      
+                      if (isCompletion) {
+                        // Completion step - mark corresponding step as completed
+                        if (stepId === 'query_analyzed' && step.id === 'analyze_query') {
+                          return { ...step, status: 'completed' as const };
+                        }
+                        if (stepId === 'search_optimized' && step.id === 'optimize_search_query') {
+                          return { ...step, status: 'completed' as const };
+                        }
+                        if (stepId === 'search_completed' && step.id === 'search_products') {
+                          return { ...step, status: 'completed' as const };
+                        }
+                        if (stepId === 'links_filtered' && step.id === 'filter_product_links') {
+                          return { ...step, status: 'completed' as const };
+                        }
+                        if (stepId === 'data_extracted' && step.id === 'extract_product_data') {
+                          return { ...step, status: 'completed' as const };
+                        }
+                        if (stepId === 'products_selected' && step.id === 'validate_and_select') {
+                          return { ...step, status: 'completed' as const };
+                        }
+                        return step;
+                      } else {
+                        // Sequential step processing - only ONE step can be running at a time
+                        
+                        // First, complete all previous steps in the step order
+                        if (currentStepIndex > thisStepIndex) {
+                          return { ...step, status: 'completed' as const };
+                        }
+                        
+                        // Mark current step as running
+                        if (step.id === stepId || (stepId === 'extracting_product_details' && step.id === 'extract_product_data')) {
+                          return { ...step, status: 'running' as const };
+                        }
+                        
+                        // All future steps remain pending
+                        if (currentStepIndex < thisStepIndex) {
+                          return { ...step, status: 'pending' as const };
+                        }
+                      }
+                      
+                      return step;
+                    });
+                  }
+                  
+                  // Also update the processSteps in the corresponding user message
+                  const updatedMessages = prev.messages.map(msg => {
+                    if (msg.requestId === prev.currentRequestId && msg.type === 'user') {
+                      return { ...msg, processSteps: updatedSteps };
+                    }
+                    return msg;
+                  });
+
+                  console.log(`Updated workflow type to: ${workflowType}, steps count: ${updatedSteps.length}`);
+
+                  return {
+                    ...prev,
+                    processSteps: updatedSteps,
+                    messages: updatedMessages,
+                    workflowType: workflowType
+                  };
+                });
+              } else if (parsed.type === 'step_complete') {
+                // Handle step completion - explicitly mark step as completed
+                console.log(`Step completed: ${parsed.completed_step}`);
+                
+                setChatState(prev => {
                   const updatedSteps = prev.processSteps.map(step => {
-                    if (isCompletion) {
-                      // Completion step - mark corresponding step as completed
-                      if (stepId === 'query_analyzed' && step.id === 'analyze_query') {
-                        return { ...step, status: 'completed' as const };
-                      }
-                      if (stepId === 'search_optimized' && step.id === 'optimize_search_query') {
-                        return { ...step, status: 'completed' as const };
-                      }
-                      if (stepId === 'search_completed' && step.id === 'search_products') {
-                        return { ...step, status: 'completed' as const };
-                      }
-                      if (stepId === 'links_filtered' && step.id === 'filter_product_links') {
-                        return { ...step, status: 'completed' as const };
-                      }
-                      if (stepId === 'data_extracted' && step.id === 'extract_product_data') {
-                        return { ...step, status: 'completed' as const };
-                      }
-                      if (stepId === 'products_selected' && step.id === 'validate_and_select') {
-                        return { ...step, status: 'completed' as const };
-                      }
-                    } else {
-                      // Running step - mark as running and complete previous steps
-                      if (step.id === stepId) {
-                        return { ...step, status: 'running' as const };
-                      }
-                      if (stepId === 'extracting_product_details' && step.id === 'extract_product_data') {
-                        return { ...step, status: 'running' as const };
-                      }
-                      
-                      // Auto-complete previous steps when we move to a new step
-                      const stepOrder = ['start', 'analyze_query', 'optimize_search_query', 'search_products', 'filter_product_links', 'extract_product_data', 'validate_and_select', 'generate_final_response'];
-                      const currentIndex = stepOrder.indexOf(stepId);
-                      const stepIndex = stepOrder.indexOf(step.id);
-                      
-                      if (currentIndex > stepIndex && step.status === 'pending') {
-                        return { ...step, status: 'completed' as const };
-                      }
+                    if (step.id === parsed.completed_step) {
+                      return { ...step, status: 'completed' as const };
                     }
                     return step;
                   });
@@ -551,7 +651,7 @@ export default function Chat() {
                 // Start generating response - don't show message, just prepare for streaming
                 console.log('Starting response generation...');
               } else if (parsed.type === 'token') {
-                // Handle token-level streaming
+                // Handle token-level streaming with smooth animation
                 setChatState(prev => {
                   let newMessages = [...prev.messages];
                   
@@ -586,7 +686,8 @@ export default function Chat() {
                     updatedMessages.push({
                       id: newMessageId,
                       type: 'ai',
-                      content: parsed.content
+                      content: parsed.content,
+                      metadata: { isStreaming: true, streamStartTime: Date.now() } // Mark as streaming for UI effects
                     });
                     
                     return { 
@@ -669,20 +770,6 @@ export default function Chat() {
                   }
                   return { ...prev, messages: newMessages };
                 });
-              } else if (parsed.type === 'llm_processing') {
-                // Handle LLM processing status
-                setChatState(prev => ({
-                  ...prev,
-                  messages: [...prev.messages, {
-                    id: Date.now().toString() + '_llm',
-                    type: 'system',
-                    content: `🧠 ${parsed.message}`,
-                    metadata: {
-                      node_name: parsed.node_name,
-                      status: 'llm_processing'
-                    }
-                  }]
-                }));
               } else if (parsed.type === 'complete') {
                 // Handle final completion
                 console.log('Received completion signal');
@@ -692,23 +779,31 @@ export default function Chat() {
                   // Remove any remaining system messages (progress indicators)
                   newMessages = newMessages.filter(msg => msg.type !== 'system');
                   
-                  // If response is provided and no AI message exists, add it
+                  // If response is provided and no streaming AI message exists, add it as fallback
                   if (parsed.response && !prev.currentStreamingMessageId) {
-                    // Only add if we don't have a streaming message
-                    newMessages.push({
-                      id: Date.now().toString() + '_ai',
-                      type: 'ai',
-                      content: parsed.response
-                    });
+                    // Check if we already have any AI messages from streaming
+                    const hasAIMessage = newMessages.some(msg => msg.type === 'ai');
+                    if (!hasAIMessage) {
+                      // Only add fallback if no AI message exists
+                      newMessages.push({
+                        id: Date.now().toString() + '_ai',
+                        type: 'ai',
+                        content: parsed.response
+                      });
+                    }
                   }
                   
                   // Mark all steps as completed for the current request
                   const completedSteps = prev.processSteps.map(step => ({ ...step, status: 'completed' as const }));
                   
-                  // Update the corresponding user message with completed steps
+                  // Update the corresponding user message with completed steps and remove streaming indicator
                   const finalMessages = newMessages.map(msg => {
                     if (msg.requestId === prev.currentRequestId && msg.type === 'user') {
                       return { ...msg, processSteps: completedSteps };
+                    }
+                    // Remove streaming indicator from AI messages
+                    if (msg.type === 'ai' && msg.metadata?.isStreaming) {
+                      return { ...msg, metadata: { ...msg.metadata, isStreaming: false } };
                     }
                     return msg;
                   });
@@ -725,6 +820,10 @@ export default function Chat() {
               }
             } catch (parseError) {
               console.error('Error parsing SSE data:', parseError, 'Raw data:', data);
+              // If it's a critical parsing error, continue to next line instead of breaking
+              if (data && data.trim() !== '') {
+                console.error('Failed to parse non-empty data:', data);
+              }
             }
           }
         }
@@ -761,7 +860,7 @@ export default function Chat() {
     }
   };
 
-  const getMessageStyle = (type: string, metadata?: any) => {
+  const getMessageStyle = (type: string) => {
     switch (type) {
       case 'user':
         return 'bg-gradient-to-br from-blue-600/90 to-indigo-700/90 text-white ml-auto shadow-2xl border border-blue-400/30 backdrop-blur-xl';
@@ -770,21 +869,6 @@ export default function Chat() {
       case 'tool':
         return 'bg-gradient-to-br from-emerald-500/15 to-emerald-600/15 text-emerald-200 mr-auto border border-emerald-400/30 backdrop-blur-xl shadow-lg';
       case 'system':
-        // Special styling for LLM processing messages
-        if (metadata?.status === 'llm_processing') {
-          return 'bg-gradient-to-br from-purple-500/15 to-purple-600/15 text-purple-200 mr-auto border border-purple-400/30 backdrop-blur-xl shadow-lg';
-        }
-        // Different styling for progress vs completion
-        if (metadata?.step_type === 'completion') {
-          return 'bg-gradient-to-br from-emerald-500/15 to-emerald-600/15 text-emerald-200 mr-auto border border-emerald-400/30 backdrop-blur-xl shadow-lg';
-        }
-        if (metadata?.step_type === 'progress') {
-          // Special styling for extracting_product_details
-          if (metadata?.step_name === 'extracting_product_details') {
-            return 'bg-gradient-to-br from-cyan-600/90 to-cyan-700/90 text-white mr-auto border border-cyan-400/40 font-medium shadow-2xl backdrop-blur-xl';
-          }
-          return 'bg-gradient-to-br from-blue-500/15 to-blue-600/15 text-blue-200 mr-auto border border-blue-400/30 backdrop-blur-xl shadow-lg';
-        }
         return 'bg-gradient-to-br from-amber-500/15 to-amber-600/15 text-amber-200 mr-auto border border-amber-400/30 backdrop-blur-xl shadow-lg';
       default:
         return 'bg-gradient-to-br from-gray-800/80 to-gray-900/80 text-gray-200 mr-auto backdrop-blur-xl border border-gray-600/30';
@@ -888,7 +972,7 @@ export default function Chat() {
               return (
                 <div key={index} className="animate-fade-in mb-6">
                   <div className="flex justify-end mb-4">
-                    <div className={`max-w-2xl px-6 py-4 rounded-3xl ${getMessageStyle(message.type, message.metadata)}`}>
+                    <div className={`max-w-2xl px-6 py-4 rounded-3xl ${getMessageStyle(message.type)}`}>
                       <div className="flex items-start space-x-3">
                         <div className="flex-1 min-w-0">
                           <div className="text-white font-medium leading-relaxed">
@@ -914,9 +998,6 @@ export default function Chat() {
                 </div>
               );
             } else if (message.type === 'ai') {
-              const images = getImagesForCarousel(message.content);
-              console.log('AI message images:', images.length, 'found');
-              
               return (
                 <div key={index} className="flex justify-start animate-fade-in mb-8">
                   <div className="max-w-5xl w-full">
@@ -927,22 +1008,36 @@ export default function Chat() {
                         <span className="text-lg font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                           무신사 쇼핑 AI
                         </span>
-                        <div className="flex space-x-1">
-                          <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
-                          <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                          <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
-                        </div>
+                        {message.metadata?.isStreaming ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="flex space-x-1">
+                              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                              <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                            </div>
+                            <span className="text-xs text-green-400 font-medium">실시간 응답 중</span>
+                          </div>
+                        ) : (
+                          <div className="flex space-x-1">
+                            <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+                            <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                            <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                          </div>
+                        )}
                       </div>
                     </div>
                     
                     {/* AI 응답 카드 */}
-                    <div className={`${getMessageStyle(message.type, message.metadata)} rounded-3xl overflow-hidden`}>
+                    <div className={`${getMessageStyle(message.type)} rounded-3xl overflow-hidden ${
+                      message.metadata?.isStreaming ? 'animate-pulse-subtle' : ''
+                    }`}>
                       <div className="p-8">
                         <div className="prose prose-invert prose-lg max-w-none">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            rehypePlugins={[rehypeHighlight]}
-                            components={{
+                          <div className="relative">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              rehypePlugins={[rehypeHighlight]}
+                              components={{
                               // Custom styling for markdown elements
                               h1: ({node, ...props}) => (
                                 <h1 className="text-3xl font-bold text-white mb-6 pb-3 border-b border-gray-600/40 flex items-center space-x-3" {...props}>
@@ -1056,9 +1151,13 @@ export default function Chat() {
                                 );
                               }
                             }}
-                          >
-                            {message.content}
-                          </ReactMarkdown>
+                            >
+                              {message.content}
+                            </ReactMarkdown>
+                            {message.metadata?.isStreaming && (
+                              <span className="inline-block w-2 h-5 bg-green-400 animate-pulse ml-1 rounded-sm"></span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1069,7 +1168,7 @@ export default function Chat() {
               // system, tool 메시지들
               return (
                 <div key={index} className="flex justify-center animate-fade-in mb-4">
-                  <div className={`px-4 py-2 rounded-full ${getMessageStyle(message.type, message.metadata)} max-w-md text-center`}>
+                  <div className={`px-4 py-2 rounded-full ${getMessageStyle(message.type)} max-w-md text-center`}>
                     <div className="flex items-center justify-center space-x-2">
                       <div className="flex-shrink-0">
                         {getMessageIcon(message.type)}
@@ -1159,6 +1258,15 @@ export default function Chat() {
           }
         }
         
+        @keyframes pulse-subtle {
+          0%, 100% {
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.2);
+          }
+          50% {
+            box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.05);
+          }
+        }
+        
         .animate-blob {
           animation: blob 7s infinite;
         }
@@ -1173,6 +1281,10 @@ export default function Chat() {
         
         .animate-fade-in {
           animation: fade-in 0.5s ease-out;
+        }
+        
+        .animate-pulse-subtle {
+          animation: pulse-subtle 2s ease-in-out infinite;
         }
       `}</style>
     </div>

@@ -75,75 +75,129 @@ async def chat_stream(request: ChatRequest):
                     "recursion_limit": 15
                 }
                 
-                # Use original astream approach with token simulation
+                # Use astream_events for detailed streaming including LLM tokens
                 final_response = ""
                 workflow_result = None
+                is_streaming_response = False
+                current_node = None
                 
-                
-                # First run the workflow and get the result
                 print(f"Starting workflow for: {request.message}")
                 
-                async for chunk in unified_workflow.workflow.astream(workflow_input, config=config, stream_mode="values"):
-                    print(f"Workflow chunk: {chunk}")
+                async for event in unified_workflow.workflow.astream_events(workflow_input, config=config, version="v2"):
+                    event_type = event.get("event")
+                    event_name = event.get("name", "")
+                    event_data = event.get("data", {})
                     
-                    # Send step update
-                    current_step = None
-                    if isinstance(chunk, dict) and chunk.get('current_step'):
-                        current_step = chunk['current_step']
-                    elif hasattr(chunk, 'current_step'):
-                        current_step = chunk.current_step
+                    # print(f"Event: {event_type}, Name: {event_name}, Data keys: {list(event_data.keys()) if isinstance(event_data, dict) else 'not dict'}")
                     
-                    if current_step:
-                        # Check if this is an LLM node
-                        is_llm_node = current_step in LLM_NODES
-                        
+                    # Log potential errors
+                    if event_type == "on_chain_error":
+                        error_info = event_data.get("error", "Unknown error")
+                        print(f"Chain error in {event_name}: {error_info}")
+                        yield f"data: {json.dumps({'type': 'error', 'error': f'Chain error in {event_name}: {str(error_info)}'}, ensure_ascii=False)}\n\n"
+                    
+                    # Handle step completion
+                    if event_type == "on_chain_end" and event_name in LLM_NODES:
+                        if current_node == event_name:
+                            current_node = None  # Reset current node after completion
+                        yield f"data: {json.dumps({
+                            'type': 'step_complete',
+                            'session_id': session_id,
+                            'completed_step': event_name,
+                            'status': 'completed'
+                        })}\n\n"
+                    
+                    # Handle workflow step updates
+                    elif event_type == "on_chain_start" and event_name in LLM_NODES:
+                        current_node = event_name  # Track current node
                         yield f"data: {json.dumps({
                             'type': 'step',
                             'session_id': session_id,
-                            'current_step': current_step,
-                            'is_llm_node': is_llm_node,
+                            'current_step': event_name,
+                            'is_llm_node': True,
                             'status': 'processing'
                         })}\n\n"
-                        
-                        # Send additional LLM processing notification for LLM nodes
-                        if is_llm_node:
-                            
-                            yield f"data: {json.dumps({
-                                'type': 'llm_processing',
-                                'session_id': session_id,
-                                'node_name': current_step,
-                                'message': LLM_NODES.get(current_step, 'AI 처리 중...'),
-                                'status': 'llm_running'
-                            })}\n\n"
                     
-                    workflow_result = chunk
+                    # Handle non-LLM workflow steps
+                    elif event_type == "on_chain_start" and event_name not in LLM_NODES and "workflow" not in event_name.lower():
+                        yield f"data: {json.dumps({
+                            'type': 'step',
+                            'session_id': session_id,
+                            'current_step': event_name,
+                            'is_llm_node': False,
+                            'status': 'processing'
+                        })}\n\n"
+                    
+                    # Handle streaming tokens from LLM - for any response generation (final response or general query)
+                    elif event_type == "on_chat_model_stream" and current_node in ["generate_final_response", "handle_general_query"]:
+                        if not is_streaming_response:
+                            is_streaming_response = True
+                            # Clear any system messages when streaming starts
+                            print(f"Starting token streaming for {current_node}")
+                        
+                        chunk_content = event_data.get("chunk", {})
+                        if hasattr(chunk_content, 'content') and chunk_content.content:
+                            try:
+                                final_response += chunk_content.content
+                                token_data = {
+                                    'type': 'token',
+                                    'session_id': session_id,
+                                    'content': chunk_content.content,
+                                    'status': 'streaming'
+                                }
+                                yield f"data: {json.dumps(token_data, ensure_ascii=False)}\n\n"
+                            except Exception as e:
+                                print(f"Error in token streaming: {e}")
+                                yield f"data: {json.dumps({'type': 'error', 'error': f'Token streaming error: {str(e)}'})}\n\n"
+                    
+                    # Handle workflow completion
+                    elif event_type == "on_chain_end" and "workflow" in event_name.lower():
+                        workflow_result = event_data.get("output", {})
                 
-                # Extract final response
+                # Handle completion
+                suggested_questions = []
                 if workflow_result:
-                    if isinstance(workflow_result, dict):
+                    suggested_questions = workflow_result.get('suggested_questions', [])
+                
+                # If we streamed tokens, send completion; otherwise fallback to full response
+                try:
+                    if is_streaming_response and final_response:
+                        print(f"Completing streaming response. Total length: {len(final_response)}")
+                        completion_data = {
+                            'type': 'complete',
+                            'session_id': session_id,
+                            'current_step': 'completed',
+                            'response': final_response,
+                            'suggested_questions': suggested_questions,
+                            'status': 'completed'
+                        }
+                        yield f"data: {json.dumps(completion_data, ensure_ascii=False)}\n\n"
+                    elif workflow_result and workflow_result.get('final_response'):
+                        # Fallback for non-streaming case
                         final_response = workflow_result.get('final_response', '')
-                    else:
-                        final_response = getattr(workflow_result, 'final_response', '')
-                
-                print(f"Final response to stream: {final_response}")
-                
-                # Stream the final response token by token
-                if final_response:
-                    yield f"data: {json.dumps({
-                            'type': 'token',
+                        print(f"Fallback to full response: {len(final_response)} chars")
+                        fallback_data = {
+                            'type': 'token', 
                             'session_id': session_id,
                             'content': final_response,
+                            'suggested_questions': suggested_questions,
                             'status': 'streaming'
-                        })}\n\n"
-                else:
-                    final_response = "죄송합니다. 응답을 생성할 수 없습니다."
-                    yield f"data: {json.dumps({
-                        'type': 'complete',
-                        'session_id': session_id,
-                        'current_step': 'completed',
-                        'response': final_response,
-                        'status': 'completed'
-                    })}\n\n"
+                        }
+                        yield f"data: {json.dumps(fallback_data, ensure_ascii=False)}\n\n"
+                    else:
+                        final_response = "죄송합니다. 응답을 생성할 수 없습니다."
+                        error_data = {
+                            'type': 'complete',
+                            'session_id': session_id,
+                            'current_step': 'completed', 
+                            'response': final_response,
+                            'suggested_questions': suggested_questions,
+                            'status': 'completed'
+                        }
+                        yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+                except Exception as e:
+                    print(f"Error in completion handling: {e}")
+                    yield f"data: {json.dumps({'type': 'error', 'error': f'Completion error: {str(e)}'}, ensure_ascii=False)}\n\n"
                 
                 # Store session response
                 sessions[session_id] = final_response
