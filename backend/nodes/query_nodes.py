@@ -28,6 +28,7 @@ BRAND_CODES = {
     "시눈": "sinoon",
     "파라부트": "paraboot",
     "킨": "keen",
+    "나이키": "nike"
 }
 
 def format_brand_codes_for_prompt() -> str:
