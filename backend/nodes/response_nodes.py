@@ -19,12 +19,26 @@ class ResponseNodes:
     """Nodes for generating final responses"""
     
     def __init__(self, model_name: str = "gpt-4.1"):
+        """
+        응답 생성 노드 초기화
+        
+        Args:
+            model_name: 사용할 LLM 모델명 (기본: gpt-4.1)
+        """
         self.llm = load_chat_model(model_name)
-        # Create streaming version of the model
+        # 실시간 스트리밍을 위한 모델 인스턴스
         self.streaming_llm = load_chat_model(model_name, streaming=True)
     
     def generate_final_response(self, state) -> dict:
-        """Generate final response considering conversation history"""
+        """
+        대화 내역을 고려하여 최종 응답 생성
+        
+        Args:
+            state: 대화 상태 (메시지, 상품 데이터 포함)
+            
+        Returns:
+            dict: 최종 응답, 업데이트된 메시지, 단계 정보
+        """
         
         print("Starting final response generation...")
 
@@ -60,7 +74,6 @@ class ResponseNodes:
             print(f"Response generation completed. Total length: {len(result.content)}")
             
             # Add AI response to messages for multi-turn conversation
-            
             return {
                 "final_response": result.content,
                 "messages": [AIMessage(content=result.content)],
@@ -72,7 +85,7 @@ class ResponseNodes:
             
             return {
                 "final_response": error_message,
-                "messages": AIMessage(content=error_message),
+                "messages": [AIMessage(content=error_message)],  # 리스트 형태로 수정
                 "current_step": "completed"
             }
     
