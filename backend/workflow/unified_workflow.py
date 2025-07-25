@@ -33,7 +33,8 @@ class WorkflowState(TypedDict):
     query_type: Literal["general", "search_required"]
     
     # Search phase
-    search_keywords: List[str]
+    search_query: str
+    search_parameters: str
     search_results: List[str]
     filtered_product_links: List[str]
     
@@ -132,10 +133,13 @@ class UnifiedShoppingWorkflow:
     def _set_extracting_status(self, state: WorkflowState) -> dict:
         """Set status to indicate product detail extraction is starting"""
         return {"current_step": "extracting_product_details"}
+    
 
 
 # Create global workflow instance
-unified_workflow = UnifiedShoppingWorkflow()
+unified_workflow = UnifiedShoppingWorkflow("openai/gpt-4.1")
+# unified_workflow = UnifiedShoppingWorkflow("openrouter/google/gemini-2.5-flash")
+# unified_workflow = UnifiedShoppingWorkflow("openrouter/qwen/qwen3-235b-a22b-07-25:free")
 
 # Export compiled workflow for LangGraph Studio
 workflow = unified_workflow.workflow

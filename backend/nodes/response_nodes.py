@@ -6,7 +6,8 @@ import json
 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import AIMessage
-from langchain_openai import ChatOpenAI
+
+from ..utils.model import load_chat_model
 
 from ..prompts.system_prompts import (
     NO_RESULTS_RESPONSE_PROMPT,
@@ -18,7 +19,9 @@ class ResponseNodes:
     """Nodes for generating final responses"""
     
     def __init__(self, model_name: str = "gpt-4.1"):
-        self.llm = ChatOpenAI(model=model_name, temperature=0)
+        self.llm = load_chat_model(model_name)
+        # Create streaming version of the model
+        self.streaming_llm = load_chat_model(model_name, streaming=True)
     
     def generate_final_response(self, state) -> dict:
         """Generate final response considering conversation history"""
@@ -39,14 +42,21 @@ class ResponseNodes:
                 MessagesPlaceholder(variable_name="messages"),
                 ("human", "검색된 상품 정보를 참고하여 답변해주세요:\n\n{products}")
             ])
+            # Safely handle product_data serialization
+            try:
+                products_str = json.dumps(state["product_data"], ensure_ascii=False, indent=2)
+            except (TypeError, ValueError) as e:
+                print(f"Warning: Failed to serialize product_data: {e}")
+                products_str = str(state["product_data"])
+            
             formatted_prompt = response_prompt.format_messages(
                 messages=state["messages"],
-                products=json.dumps(state["product_data"], ensure_ascii=False, indent=2)
+                products=products_str
             )
         
-        # Generate response using LLM
+        # Generate response using streaming LLM for real-time token streaming
         try:
-            result = self.llm.invoke(formatted_prompt)
+            result = self.streaming_llm.invoke(formatted_prompt)
             print(f"Response generation completed. Total length: {len(result.content)}")
             
             # Add AI response to messages for multi-turn conversation
@@ -65,4 +75,5 @@ class ResponseNodes:
                 "messages": AIMessage(content=error_message),
                 "current_step": "completed"
             }
+    
     

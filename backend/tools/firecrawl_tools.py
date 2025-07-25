@@ -15,7 +15,8 @@ Required environment variables:
 
 import os
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from urllib.parse import urlencode
 from firecrawl import FirecrawlApp
 from langchain_core.tools import tool
 # from ..models.schemas import ProductInfo, SearchQuery
@@ -128,7 +129,7 @@ def search_musinsa(query: str, num_results: int = 5) -> List[str]:
         return []  # 빈 리스트 반환으로 graceful degradation 수행
 
 @tool
-def scrape_product_page(query: str) -> List[str]:
+def scrape_product_page(query: str, query_terms: Optional[str]) -> List[str]:
     """
     Search for products on Musinsa by scraping search results page and extracting product links.
     
@@ -160,9 +161,25 @@ def scrape_product_page(query: str) -> List[str]:
         3. Expand query and retry scrape_product_page if still no results
     """
     try:
+        params = {'q' : query}
+
+        if query_terms:
+            if isinstance(query_terms, dict):
+                params.update(query_terms)
+            elif isinstance(query_terms, str):
+                from urllib.parse import parse_qs
+                additional_params = parse_qs(query_terms)
+                for key, values in additional_params.items():
+                    if values and values[0]:
+                        params[key] = values[0]
+
+        #TODO 무신사 키워드를 프롬프트로 제공해서 고도화
+        url = f"https://www.musinsa.com/search/musinsa/goods?{urlencode(params)}"
+        print(f"search url: {url}")
+
         # Use Firecrawl's scrape_url method with optimized parameters for faster scraping
         result = firecrawl_app.scrape_url(
-            url=f"https://www.musinsa.com/search/musinsa/goods?q={query}",
+            url=url,
             formats=['html'],
             include_tags=['a'],
             exclude_tags=['script', 'style', 'noscript', 'iframe'],
@@ -317,7 +334,7 @@ def extract_product_info(url: str) -> str:
             wait_for=2000  # Reduced wait time for faster extraction
         )
         
-        extracted_data = result.extract    
+        extracted_data = result.extract
         # Process and return the extracted data
         if extracted_data.get('name') and extracted_data.get('price'):
             return extracted_data

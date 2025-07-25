@@ -7,8 +7,8 @@ import json
 from typing import List
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
 
+from ..utils.model import load_chat_model
 from ..tools.firecrawl_tools import extract_product_info
 from ..prompts.system_prompts import PRODUCT_VALIDATION_PROMPT
 
@@ -16,8 +16,8 @@ from ..prompts.system_prompts import PRODUCT_VALIDATION_PROMPT
 class ExtractionNodes:
     """Nodes for product data extraction and validation"""
     
-    def __init__(self, model_name: str = "gpt-4.1"):
-        self.llm = ChatOpenAI(model=model_name, temperature=0)
+    def __init__(self, model_name: str = "openai/gpt-4.1-mini"):
+        self.llm = load_chat_model(model_name)
     
     def extract_product_data(self, state) -> dict:
         """Extract product data in parallel"""
