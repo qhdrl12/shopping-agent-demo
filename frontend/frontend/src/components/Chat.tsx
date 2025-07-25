@@ -162,8 +162,8 @@ export default function Chat() {
 
     const requestId = Date.now().toString();
     const initialSteps = getProcessSteps(); // Get unified steps for all requests
-    // Mark the first step as running
-    initialSteps[0].status = 'running';
+    // Keep all steps as pending initially - they'll be updated by workflow events
+    // No need to set any as running here
 
     const userMessage: Message = {
       id: requestId,
@@ -298,24 +298,25 @@ export default function Chat() {
                   // Skip step processing if we already fast-forwarded for general workflow
                   let updatedSteps = stepsToUse;
                   
+                  // ========================================
+                  // 단계 상태 업데이트 로직
+                  // ========================================
+                  // 일반 워크플로우에서 이미 fast-forward 처리된 경우가 아니라면
+                  // 단계별 상태를 업데이트합니다.
                   if (workflowType !== 'general' || stepId !== 'handle_general_query') {
                     updatedSteps = stepsToUse.map(step => {
+                      // 현재 실행 중인 단계와 각 단계의 순서를 계산
                       const currentStepIndex = stepOrder.indexOf(stepId);
                       const thisStepIndex = stepOrder.indexOf(step.id);
                       
-                      // Special handling for analyze_query to show immediate progression
-                      if (stepId === 'analyze_query') {
-                        if (step.id === 'start') {
-                          return { ...step, status: 'completed' as const };
-                        }
-                        if (step.id === 'analyze_query') {
-                          return { ...step, status: 'running' as const };
-                        }
-                        return step;
-                      }
                       
+                      // ========================================
+                      // 2. 완료 단계 처리 (isCompletion = true)
+                      // ========================================
+                      // 백엔드에서 "단계명_완료" 형태의 이벤트가 올 때
+                      // 해당하는 단계를 완료 상태로 표시
                       if (isCompletion) {
-                        // Completion step - mark corresponding step as completed
+                        // 각 완료 이벤트와 매칭되는 단계를 찾아서 완료 처리
                         if (stepId === 'query_analyzed' && step.id === 'analyze_query') {
                           return { ...step, status: 'completed' as const };
                         }
@@ -334,26 +335,36 @@ export default function Chat() {
                         if (stepId === 'products_selected' && step.id === 'validate_and_select') {
                           return { ...step, status: 'completed' as const };
                         }
+                        // 매칭되지 않는 단계는 그대로 유지
                         return step;
                       } else {
-                        // Sequential step processing - only ONE step can be running at a time
+                        // ========================================
+                        // 3. 순차적 단계 처리 (isCompletion = false)
+                        // ========================================
+                        // 새로운 단계가 시작될 때 단계들의 상태를 순차적으로 업데이트
+                        // 핵심 원칙: 한 번에 하나의 단계만 'running' 상태
                         
-                        // First, complete all previous steps in the step order
+                        // 3-1. 이전 단계들을 모두 완료 처리
+                        // 현재 단계보다 앞선 단계들은 자동으로 완료 상태로 변경
                         if (currentStepIndex > thisStepIndex) {
                           return { ...step, status: 'completed' as const };
                         }
                         
-                        // Mark current step as running
+                        // 3-2. 현재 실행 중인 단계 표시
+                        // stepId와 일치하는 단계를 실행 중으로 표시
+                        // 특별 케이스: 'extracting_product_details'는 'extract_product_data' 단계에 매핑
                         if (step.id === stepId || (stepId === 'extracting_product_details' && step.id === 'extract_product_data')) {
                           return { ...step, status: 'running' as const };
                         }
                         
-                        // All future steps remain pending
+                        // 3-3. 미래 단계들은 대기 상태 유지
+                        // 현재 단계보다 나중 단계들은 pending 상태로 유지
                         if (currentStepIndex < thisStepIndex) {
                           return { ...step, status: 'pending' as const };
                         }
                       }
                       
+                      // 어떤 조건에도 해당하지 않는 경우 기존 상태 유지
                       return step;
                     });
                   }
