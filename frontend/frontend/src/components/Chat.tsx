@@ -10,9 +10,15 @@ interface Message {
   id: string;
   type: 'user' | 'ai' | 'tool' | 'system';
   content: string;
-  metadata?: any;
+  metadata?: Record<string, any>;
   processSteps?: ProcessStep[];
   requestId?: string;
+  searchMetadata?: {
+    search_query: string;
+    search_parameters: string;
+    results_count: number;
+    search_url: string;
+  };
 }
 
 interface ProcessStep {
@@ -61,6 +67,67 @@ export default function Chat() {
 
 
 
+
+  // Render search metadata component
+  const renderSearchMetadata = (searchMetadata: Message['searchMetadata']) => {
+    if (!searchMetadata) return null;
+
+    return (
+      <div className="mb-4">
+        <div className="bg-gradient-to-br from-emerald-800/60 to-emerald-900/60 backdrop-blur-xl border border-emerald-600/30 rounded-2xl p-5 shadow-xl">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg">
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-emerald-100">검색 정보</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <span className="text-emerald-400 font-medium">검색어:</span>
+                <span className="text-gray-200 bg-emerald-900/30 px-2 py-1 rounded-md border border-emerald-700/30">
+                  {searchMetadata.search_query}
+                </span>
+              </div>
+              
+              {searchMetadata.search_parameters && (
+                <div className="flex items-start space-x-2">
+                  <span className="text-emerald-400 font-medium">필터:</span>
+                  <span className="text-gray-300 bg-emerald-900/20 px-2 py-1 rounded-md text-xs font-mono border border-emerald-700/20">
+                    {searchMetadata.search_parameters}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <span className="text-emerald-400 font-medium">찾은 상품 수:</span>
+                <span className="text-emerald-200 font-semibold">
+                  {searchMetadata.results_count}개
+                </span>
+              </div>
+              
+              <div className="flex items-start space-x-2">
+                <span className="text-emerald-400 font-medium">무신사 링크:</span>
+                <a 
+                  href={searchMetadata.search_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-emerald-300 hover:text-emerald-200 underline decoration-emerald-500/50 hover:decoration-emerald-400 transition-colors duration-200 text-xs break-all"
+                >
+                  검색 결과 보기 →
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Render process steps component for a specific message
   const renderProcessSteps = (steps: ProcessStep[]) => {
@@ -412,6 +479,24 @@ export default function Chat() {
                     messages: updatedMessages
                   };
                 });
+              } else if (parsed.type === 'search_metadata') {
+                // Handle search metadata display
+                console.log('Received search metadata:', parsed.metadata);
+                
+                setChatState(prev => {
+                  // Update the corresponding user message with search metadata
+                  const updatedMessages = prev.messages.map(msg => {
+                    if (msg.requestId === prev.currentRequestId && msg.type === 'user') {
+                      return { ...msg, searchMetadata: parsed.metadata };
+                    }
+                    return msg;
+                  });
+
+                  return {
+                    ...prev,
+                    messages: updatedMessages
+                  };
+                });
               } else if (parsed.type === 'generating_start') {
                 // Start generating response - don't show message, just prepare for streaming
                 console.log('Starting response generation...');
@@ -722,10 +807,10 @@ export default function Chat() {
               <p className="text-lg text-gray-400 mb-2">무신사에서 원하는 제품을 찾아드리겠습니다</p>
               <div className="space-y-2 text-sm text-gray-500">
                 <p className="inline-block bg-gray-800/50 px-4 py-2 rounded-full backdrop-blur-sm border border-gray-700/30">
-                  💡 예: "20만원 이하 겨울 코트 추천해줘"
+                  💡 예: &quot;20만원 이하 겨울 코트 추천해줘&quot;
                 </p>
                 <p className="inline-block bg-gray-800/50 px-4 py-2 rounded-full backdrop-blur-sm border border-gray-700/30 ml-2">
-                  ⚡ 예: "나이키 운동화 찾아줘"
+                  ⚡ 예: &quot;나이키 운동화 찾아줘&quot;
                 </p>
               </div>
             </div>
@@ -757,6 +842,17 @@ export default function Chat() {
                     <div className="flex justify-start mb-4">
                       <div className="max-w-4xl w-full">
                         {renderProcessSteps(message.processSteps)}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show search metadata when available - display during product data collection */}
+                  {message.searchMetadata && message.processSteps?.some(step => 
+                    step.id === 'search_products' && (step.status === 'completed' || step.status === 'running')
+                  ) && (
+                    <div className="flex justify-start mb-4">
+                      <div className="max-w-4xl w-full">
+                        {renderSearchMetadata(message.searchMetadata)}
                       </div>
                     </div>
                   )}
