@@ -113,8 +113,31 @@ class SearchNodes:
                 unique_results.append(url)
         
         print(f"Total unique results found: {len(unique_results)}")
+        
+        # Prepare search metadata for frontend display
+        search_metadata = {
+            "search_query": search_query,
+            "search_parameters": search_parameters,
+            "results_count": len(unique_results),
+            "search_url": f"https://www.musinsa.com/search/musinsa/goods?q={search_query}"
+        }
+        
+        # Add parameters to search URL if they exist
+        if search_parameters:
+            from urllib.parse import urlencode, parse_qs
+            try:
+                params = parse_qs(search_parameters)
+                url_params = {"q": search_query}
+                for key, values in params.items():
+                    if values and values[0]:
+                        url_params[key] = values[0]
+                search_metadata["search_url"] = f"https://www.musinsa.com/search/musinsa/goods?{urlencode(url_params)}"
+            except:
+                pass  # Fall back to basic URL
+        
         return {
             "search_results": unique_results,
+            "search_metadata": search_metadata,
             "current_step": "search_completed"
         }
 

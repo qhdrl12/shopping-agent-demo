@@ -107,6 +107,17 @@ async def chat_stream(request: ChatRequest):
                             'status': 'completed'
                         })}\n\n"
                     
+                    # Handle search products completion - send search metadata
+                    elif event_type == "on_chain_end" and event_name == "search_products":
+                        search_metadata = event_data.get("output", {}).get("search_metadata")
+                        if search_metadata:
+                            yield f"data: {json.dumps({
+                                'type': 'search_metadata',
+                                'session_id': session_id,
+                                'metadata': search_metadata,
+                                'status': 'info'
+                            }, ensure_ascii=False)}\n\n"
+                    
                     # Handle workflow step updates
                     elif event_type == "on_chain_start" and event_name in LLM_NODES:
                         current_node = event_name  # Track current node

@@ -36,6 +36,7 @@ class WorkflowState(TypedDict):
     search_query: str
     search_parameters: str
     search_results: List[str]
+    search_metadata: Dict[str, Any]  # Added for search information display
     filtered_product_links: List[str]
     
     # Data extraction phase  
@@ -128,10 +129,12 @@ class UnifiedShoppingWorkflow:
     
     def _route_after_validation(self, state: WorkflowState) -> str:
         """Route based on product validation"""
+        # Always route to response generation after validation
         return "generate_response"
     
     def _set_extracting_status(self, state: WorkflowState) -> dict:
         """Set status to indicate product detail extraction is starting"""
+        # Set extraction status regardless of current state
         return {"current_step": "extracting_product_details"}
     
 
