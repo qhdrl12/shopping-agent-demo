@@ -10,8 +10,7 @@ Kakao Pay Service
 import os
 import uuid
 import httpx
-import json
-from typing import Dict, Any, Optional
+from typing import Dict, Optional
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -39,14 +38,14 @@ class KakaoPayService:
         
         self.base_url = "https://open-api.kakaopay.com"
         
-        
         self.headers = {
             "Authorization": f"SECRET_KEY {self.secret_key}",
             "Content-Type": "application/json"
         }
         
-        # 결제 상태 저장을 위한 임시 스토리지 (실제 운영에서는 Redis나 DB 사용)
-        self.payment_sessions: Dict[str, Dict[str, Any]] = {}
+        # 개발용 간단한 세션 저장소 (결제 승인에 필요한 최소 데이터만)
+        # 카카오페이 승인 시 partner_order_id, partner_user_id가 필수
+        self.payment_sessions: Dict[str, Dict[str, str]] = {}
     
     async def prepare_payment(self, payment_request: PaymentReadyRequest) -> PaymentReadyResponse:
         """
@@ -62,11 +61,13 @@ class KakaoPayService:
             PaymentErrorResponse: 결제 준비 실패 시
         """
         try:
-            # 주문 번호 생성 (UUID + timestamp)
+            # 고유 주문번호 및 사용자ID 생성
+            # Format: ORDER_[8자리UUID]_[Unix타임스탬프] 
             partner_order_id = f"ORDER_{uuid.uuid4().hex[:8]}_{int(datetime.now().timestamp())}"
             partner_user_id = f"USER_{uuid.uuid4().hex[:8]}"
             
             # VAT 자동 계산 (부가세 10%)
+            # 한국 부가세법: 부가세 = 공급가액 × 10% = 총금액 ÷ 11
             vat_amount = payment_request.vat_amount
             if vat_amount is None:
                 vat_amount = int(payment_request.total_amount / 11)
@@ -81,27 +82,35 @@ class KakaoPayService:
                 "total_amount": payment_request.total_amount,
                 "vat_amount": vat_amount,
                 "tax_free_amount": payment_request.tax_free_amount,
-                "approval_url": f"http://localhost:3000/payment/success",  # 결제 성공 시 리다이렉트 URL
-                "fail_url": f"http://localhost:3000/payment/fail",       # 결제 실패 시 리다이렉트 URL
-                "cancel_url": f"http://localhost:3000/payment/cancel"     # 결제 취소 시 리다이렉트 URL
+                # 결제 완료 후 리다이렉트 URL들
+                # TODO: 환경변수로 분리하여 개발/운영 환경별 관리 필요
+                "approval_url": f"http://localhost:3000/payment/success",  
+                "fail_url": f"http://localhost:3000/payment/fail",        
+                "cancel_url": f"http://localhost:3000/payment/cancel"
             }
             
-            print(f"Preparing payment with data: {prepare_data}")
+            # 개발환경에서만 로깅 (운영환경에서는 로거 사용 권장)
+            print(f"[DEBUG] Preparing payment with data: {prepare_data}")
             
-            # API 호출
+            # 카카오페이 결제준비 API 호출
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{self.base_url}/online/v1/payment/ready",
                     headers=self.headers,
                     json=prepare_data,
-                    timeout=30.0
+                    timeout=30.0  # 타임아웃 30초
                 )
                 
-                print(f"Kakao Pay API response status: {response.status_code}")
-                print(f"Kakao Pay API response: {response.text}")
+                print(f"[DEBUG] Kakao Pay API response status: {response.status_code}")
+                print(f"[DEBUG] Kakao Pay API response: {response.text}")
                 
+                # HTTP 상태코드 확인 및 에러 처리
                 if response.status_code != 200:
-                    error_data = response.json() if response.content else {}
+                    try:
+                        error_data = response.json() if response.content else {}
+                    except ValueError:
+                        error_data = {"raw_response": response.text}
+                    
                     raise PaymentErrorResponse(
                         error_code=str(response.status_code),
                         error_message=error_data.get("error_message", "Payment preparation failed"),
@@ -110,16 +119,11 @@ class KakaoPayService:
                 
                 response_data = response.json()
                 
-                # 결제 세션 저장
+                # 결제 승인에 필요한 최소 데이터만 저장 (개발용)
                 tid = response_data["tid"]
                 self.payment_sessions[tid] = {
                     "partner_order_id": partner_order_id,
-                    "partner_user_id": partner_user_id,
-                    "product_name": payment_request.product_name,
-                    "product_url": payment_request.product_url,
-                    "total_amount": payment_request.total_amount,
-                    "created_at": datetime.now(),
-                    "status": "ready"
+                    "partner_user_id": partner_user_id
                 }
                 
                 return PaymentReadyResponse(
@@ -172,22 +176,27 @@ class KakaoPayService:
                 "pg_token": approve_request.pg_token
             }
             
-            print(f"Approving payment with data: {approve_data}")
+            print(f"[DEBUG] Approving payment with data: {approve_data}")
             
-            # API 호출
+            # 카카오페이 결제승인 API 호출
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{self.base_url}/online/v1/payment/approve",
                     headers=self.headers,
                     json=approve_data,
-                    timeout=30.0
+                    timeout=30.0  # 타임아웃 30초
                 )
                 
-                print(f"Kakao Pay approve response status: {response.status_code}")
-                print(f"Kakao Pay approve response: {response.text}")
+                print(f"[DEBUG] Kakao Pay approve response status: {response.status_code}")
+                print(f"[DEBUG] Kakao Pay approve response: {response.text}")
                 
+                # HTTP 상태코드 확인 및 에러 처리
                 if response.status_code != 200:
-                    error_data = response.json() if response.content else {}
+                    try:
+                        error_data = response.json() if response.content else {}
+                    except ValueError:
+                        error_data = {"raw_response": response.text}
+                    
                     raise PaymentErrorResponse(
                         error_code=str(response.status_code),
                         error_message=error_data.get("error_message", "Payment approval failed"),
@@ -196,9 +205,8 @@ class KakaoPayService:
                 
                 response_data = response.json()
                 
-                # 결제 세션 상태 업데이트
-                self.payment_sessions[approve_request.tid]["status"] = "approved"
-                self.payment_sessions[approve_request.tid]["approved_at"] = datetime.now()
+                # 개발용: 승인 완료 후 세션 자동 정리
+                del self.payment_sessions[approve_request.tid]
                 
                 return PaymentApproveResponse(
                     aid=response_data["aid"],
@@ -225,17 +233,23 @@ class KakaoPayService:
                 error_message=f"Failed to approve payment: {str(e)}"
             )
     
-    def get_payment_session(self, tid: str) -> Optional[Dict[str, Any]]:
-        """결제 세션 정보 조회"""
+    def get_payment_session(self, tid: str) -> Optional[Dict[str, str]]:
+        """개발용: 결제 승인에 필요한 기본 정보만 반환"""
         return self.payment_sessions.get(tid)
     
     def clear_payment_session(self, tid: str) -> bool:
-        """결제 세션 정보 삭제"""
+        """개발용: 결제 세션 수동 삭제"""
         if tid in self.payment_sessions:
             del self.payment_sessions[tid]
             return True
         return False
 
 
-# 전역 서비스 인스턴스
-kakao_pay_service = KakaoPayService()
+# 전역 서비스 인스턴스 
+# 싱글톤 패턴으로 애플리케이션 전체에서 동일한 인스턴스 사용
+try:
+    kakao_pay_service = KakaoPayService()
+except ValueError as e:
+    print(f"[ERROR] Failed to initialize KakaoPayService: {e}")
+    print("[INFO] Please check KAKAO_PAY_CID and KAKAO_PAY_SECRET_KEY environment variables")
+    kakao_pay_service = None
