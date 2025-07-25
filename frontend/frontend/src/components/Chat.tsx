@@ -950,19 +950,22 @@ export default function Chat() {
                                 // 구매하기 또는 SHOP NOW 링크인 경우 특별한 버튼 스타일 적용
                                 if (childText.includes('SHOP NOW') || childText.includes('구매하기')) {
                                   return (
-                                    <div className="my-8 flex justify-center space-x-4">
+                                    <div className="my-6 flex justify-center space-x-4">
                                       <a
                                         href={href}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="group relative inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 border border-blue-500/40 backdrop-blur-sm"
+                                        className="group relative inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-purple-500/10 hover:from-cyan-400/20 hover:via-blue-400/20 hover:to-purple-400/20 text-cyan-400 hover:text-cyan-300 font-bold rounded-2xl transition-all duration-500 transform hover:scale-105 hover:shadow-xl hover:shadow-cyan-400/25 border border-cyan-400/30 hover:border-cyan-300/50 backdrop-blur-lg relative overflow-hidden"
                                         {...props}
                                       >
-                                        <div className="flex items-center space-x-3">
-                                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                          </svg>
-                                          <span className="text-lg">상세보기</span>
+                                        <div className="absolute inset-0 bg-gradient-to-r from-cyan-600/5 via-blue-600/5 to-purple-600/5 animate-pulse"></div>
+                                        <div className="relative flex items-center space-x-3">
+                                          <div className="p-1.5 rounded-full bg-cyan-400/10 border border-cyan-400/20">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                            </svg>
+                                          </div>
+                                          <span className="text-base font-bold tracking-wide">상세보기</span>
                                         </div>
                                       </a>
                                       
@@ -971,13 +974,16 @@ export default function Chat() {
                                         href={href}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="group relative inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-300 hover:to-yellow-400 text-gray-900 font-bold rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-yellow-400/40 border border-yellow-500/50 backdrop-blur-sm"
+                                        className="group relative inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-yellow-400/90 via-amber-400/90 to-orange-400/90 hover:from-yellow-300 hover:via-amber-300 hover:to-orange-300 text-black font-bold rounded-2xl transition-all duration-500 transform hover:scale-105 hover:shadow-xl hover:shadow-yellow-400/40 border border-yellow-300/50 hover:border-yellow-200/70 backdrop-blur-lg relative overflow-hidden"
                                       >
-                                        <div className="flex items-center space-x-3">
-                                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                                          </svg>
-                                          <span className="text-lg">바로결제</span>
+                                        <div className="absolute inset-0 bg-gradient-to-r from-yellow-200/20 via-amber-200/20 to-orange-200/20 animate-pulse"></div>
+                                        <div className="relative flex items-center space-x-3">
+                                          <div className="p-1.5 rounded-full bg-yellow-600/20 border border-yellow-500/30">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                            </svg>
+                                          </div>
+                                          <span className="text-base font-bold tracking-wide">바로결제</span>
                                         </div>
                                       </a>
                                     </div>
