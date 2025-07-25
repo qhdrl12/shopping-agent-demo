@@ -10,7 +10,6 @@ from ..tools.firecrawl_tools import search_musinsa, scrape_product_page
 from urllib.parse import parse_qs, urlencode
 
 
-
 class SearchNodes:
     """Nodes for product search and filtering"""
     
@@ -114,26 +113,32 @@ class SearchNodes:
         
         print(f"Total unique results found: {len(unique_results)}")
         
-        # Prepare search metadata for frontend display
+        # Prepare search metadata for frontend display with proper URL construction
+        # Use same logic as scrape_product_page for consistency
+        params = {'q': search_query}
+        
+        if search_parameters:
+            try:
+                if isinstance(search_parameters, dict):
+                    params.update(search_parameters)
+                elif isinstance(search_parameters, str):
+                    additional_params = parse_qs(search_parameters)
+                    for key, values in additional_params.items():
+                        if values and values[0]:
+                            params[key] = values[0]
+            except Exception as e:
+                print(f"Error parsing search parameters: {e}")
+                # Fall back to basic query only
+        
+        search_url = f"https://www.musinsa.com/search/musinsa/goods?{urlencode(params)}"
+        print(f"Generated search URL for frontend: {search_url}")
+        
         search_metadata = {
             "search_query": search_query,
             "search_parameters": search_parameters,
             "results_count": len(unique_results),
-            "search_url": f"https://www.musinsa.com/search/musinsa/goods?q={search_query}"
+            "search_url": search_url
         }
-        
-        # Add parameters to search URL if they exist
-        if search_parameters:
-            from urllib.parse import urlencode, parse_qs
-            try:
-                params = parse_qs(search_parameters)
-                url_params = {"q": search_query}
-                for key, values in params.items():
-                    if values and values[0]:
-                        url_params[key] = values[0]
-                search_metadata["search_url"] = f"https://www.musinsa.com/search/musinsa/goods?{urlencode(url_params)}"
-            except:
-                pass  # Fall back to basic URL
         
         return {
             "search_results": unique_results,
@@ -142,77 +147,6 @@ class SearchNodes:
         }
 
 
-    # def search_products(self, state) -> dict:
-    #     """
-    #     Enhanced async search strategy:
-    #     1. First try scrape_product_page for direct product search (parallel)
-    #     2. Fallback to search_musinsa for site-wide search (parallel)
-    #     3. If still no results, expand query and retry scrape_product_page (parallel)
-    #     """
-        
-    #     print(f"Starting search terms: {state['optimized_search_terms']}")
-        
-    #     search_results = []
-        
-    #     # 3단계 검색 전략을 각 키워드에 대해 순차적으로 실행
-    #     # 비동기 처리가 실패할 경우의 폴백 메커니즘
-    #     for keyword in state['search_keywords']:
-    #         try:
-    #             print(f"Sequential search for keyword: {keyword}")
-                
-    #             # 전략 1: 직접 상품 페이지 스크래핑 (가장 빠르고 정확한 방법)
-    #             # Musinsa 검색 결과 페이지를 직접 스크래핑하여 상품 링크 추출
-    #             direct_results = scrape_product_page.invoke(keyword)
-    #             if direct_results:
-    #                 print(f"Found {len(direct_results)} products via direct scraping for: {keyword}")
-    #                 search_results.extend(direct_results)
-    #                 continue  # 결과를 찾았으므로 다음 키워드로 진행
-                
-    #             # 전략 2: Firecrawl의 사이트 검색 API 사용 (폴백 방법)
-    #             # 직접 스크래핑이 실패했을 때 사용하는 대안적 검색 방법
-    #             site_results = search_musinsa.invoke(keyword)
-    #             if site_results:
-    #                 print(f"Found {len(site_results)} products via site search for: {keyword}")
-    #                 search_results.extend(site_results)
-    #                 continue  # 결과를 찾았으므로 다음 키워드로 진행
-                
-    #             # 전략 3: 쿼리 확장 후 재검색 (최후의 수단)
-    #             # 원본 키워드로 결과가 없을 때 유사한 키워드들로 확장하여 재시도
-    #             print(f"No results found for '{keyword}', trying expanded queries...")
-    #             expanded_queries = self._expand_query(keyword)
-                
-    #             for expanded_query in expanded_queries:
-    #                 print(f"Trying expanded query: '{expanded_query}'")
-    #                 expanded_results = scrape_product_page.invoke(expanded_query)
-    #                 if expanded_results:
-    #                     print(f"Found {len(expanded_results)} products via expanded query '{expanded_query}'")
-    #                     search_results.extend(expanded_results)
-    #                     break  # 하나의 확장 쿼리에서 결과를 찾았으므로 중단
-                    
-    #         except Exception as e:
-    #             # 개별 키워드 검색 중 오류 발생 시 로깅하고 다음 키워드 계속 처리
-    #             # 전체 검색 프로세스가 중단되지 않도록 예외 처리
-    #             print(f"Search error for keyword '{keyword}': {e}")
-    #             import traceback
-    #             traceback.print_exc()
-    #             continue  # 오류가 발생해도 다음 키워드 검색 계속 진행
-        
-
-    #     # 중복 URL 제거 (순서 유지)
-    #     # 여러 키워드 검색이나 확장 쿼리에서 동일한 상품이 중복될 수 있으므로
-    #     # set을 사용해 중복을 추적하면서 리스트 순서는 유지
-    #     seen = set()
-    #     unique_results = []
-    #     for url in search_results:
-    #         if url not in seen:
-    #             seen.add(url)
-    #             unique_results.append(url)
-        
-    #     print(f"Total unique results found: {len(unique_results)}")
-    #     return {
-    #         "search_results": unique_results,
-    #         "current_step": "search_completed"
-    #     }
     
     def filter_product_links(self, state) -> dict:
         """Filter and validate product links"""

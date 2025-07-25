@@ -88,8 +88,6 @@ async def chat_stream(request: ChatRequest):
                     event_name = event.get("name", "")
                     event_data = event.get("data", {})
                     
-                    # print(f"Event: {event_type}, Name: {event_name}, Data keys: {list(event_data.keys()) if isinstance(event_data, dict) else 'not dict'}")
-                    
                     # Log potential errors
                     if event_type == "on_chain_error":
                         error_info = event_data.get("error", "Unknown error")
@@ -107,8 +105,17 @@ async def chat_stream(request: ChatRequest):
                             'status': 'completed'
                         })}\n\n"
                     
-                    # Handle search products completion - send search metadata
+                    # Handle search products completion - send search metadata and step completion
                     elif event_type == "on_chain_end" and event_name == "search_products":
+                        # Send step completion event first
+                        yield f"data: {json.dumps({
+                            'type': 'step_complete',
+                            'session_id': session_id,
+                            'completed_step': event_name,
+                            'status': 'completed'
+                        })}\n\n"
+                        
+                        # Then send search metadata if available
                         search_metadata = event_data.get("output", {}).get("search_metadata")
                         if search_metadata:
                             yield f"data: {json.dumps({
@@ -129,7 +136,7 @@ async def chat_stream(request: ChatRequest):
                             'status': 'processing'
                         })}\n\n"
                     
-                    # Handle non-LLM workflow steps
+                    # Handle non-LLM workflow steps (including search_products)
                     elif event_type == "on_chain_start" and event_name not in LLM_NODES and "workflow" not in event_name.lower():
                         yield f"data: {json.dumps({
                             'type': 'step',
