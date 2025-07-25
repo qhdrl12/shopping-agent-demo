@@ -39,18 +39,11 @@ class KakaoPayService:
         
         self.base_url = "https://open-api.kakaopay.com"
         
-        # 카카오페이 API 인증 방식 수정
-        # DEV 환경에서는 KakaoAK 접두사 사용, 운영에서는 SECRET_KEY 사용
-        if self.secret_key.startswith("KakaoAK"):
-            self.headers = {
-                "Authorization": self.secret_key,
-                "Content-Type": "application/json"
-            }
-        else:
-            self.headers = {
-                "Authorization": f"SECRET_KEY {self.secret_key}",
-                "Content-Type": "application/json"
-            }
+        
+        self.headers = {
+            "Authorization": f"SECRET_KEY {self.secret_key}",
+            "Content-Type": "application/json"
+        }
         
         # 결제 상태 저장을 위한 임시 스토리지 (실제 운영에서는 Redis나 DB 사용)
         self.payment_sessions: Dict[str, Dict[str, Any]] = {}
