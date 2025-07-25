@@ -10,7 +10,7 @@ interface Message {
   id: string;
   type: 'user' | 'ai' | 'tool' | 'system';
   content: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   processSteps?: ProcessStep[];
   requestId?: string;
   searchMetadata?: {
@@ -846,10 +846,9 @@ export default function Chat() {
                     </div>
                   )}
 
-                  {/* Show search metadata when available - display during product data collection */}
-                  {message.searchMetadata && message.processSteps?.some(step => 
-                    step.id === 'search_products' && (step.status === 'completed' || step.status === 'running')
-                  ) && (
+                  {/* Show search metadata when available - only if still processing (same as process steps) */}
+                  {message.searchMetadata && message.processSteps && message.processSteps.length > 0 && 
+                   message.processSteps.some(step => step.status === 'running' || step.status === 'pending') && (
                     <div className="flex justify-start mb-4">
                       <div className="max-w-4xl w-full">
                         {renderSearchMetadata(message.searchMetadata)}
@@ -900,52 +899,52 @@ export default function Chat() {
                               rehypePlugins={[rehypeHighlight]}
                               components={{
                               // Custom styling for markdown elements
-                              h1: ({node, ...props}) => (
+                              h1: ({...props}) => (
                                 <h1 className="text-3xl font-bold text-white mb-6 pb-3 border-b border-gray-600/40 flex items-center space-x-3" {...props}>
                                   <span className="text-2xl">🎯</span>
                                   <span>{props.children}</span>
                                 </h1>
                               ),
-                              h2: ({node, ...props}) => (
+                              h2: ({...props}) => (
                                 <h2 className="text-2xl font-bold text-gray-100 mb-5 mt-8 flex items-center space-x-3" {...props}>
                                   {/* <span className="text-xl">🔍</span> */}
                                   <span>{props.children}</span>
                                 </h2>
                               ),
-                              h3: ({node, ...props}) => (
+                              h3: ({...props}) => (
                                 <h3 className="text-xl font-semibold text-gray-200 mb-4 mt-6 flex items-center space-x-2" {...props}>
                                   {/* <span className="text-lg">🏆</span> */}
                                   <span>{props.children}</span>
                                 </h3>
                               ),
-                              h4: ({node, ...props}) => (
+                              h4: ({...props}) => (
                                 <h4 className="text-lg font-semibold text-gray-200 mb-3 mt-5 flex items-center space-x-2" {...props}>
                                   {/* <span className="text-base">{/1순위|🥇/.test(props.children?.toString() || '') ? '🥇' : /2순위|🥈/.test(props.children?.toString() || '') ? '🥈' : /3순위|🥉/.test(props.children?.toString() || '') ? '🥉' : '💡'}</span> */}
                                   <span>{props.children}</span>
                                 </h4>
                               ),
-                              ul: ({node, ...props}) => <ul className="text-gray-200 space-y-2 ml-4 mb-4" {...props} />,
-                              ol: ({node, ...props}) => <ol className="text-gray-200 space-y-2 ml-4 mb-4" {...props} />,
-                              li: ({node, ...props}) => <li className="text-gray-200 flex items-start space-x-2" {...props} />,
-                              strong: ({node, ...props}) => <strong className="text-white font-bold" {...props} />,
-                              em: ({node, ...props}) => <em className="text-blue-300 italic font-medium" {...props} />,
-                              code: ({node, ...props}) => <code className="bg-gray-700/60 text-cyan-300 px-2 py-1 rounded-md font-mono text-sm" {...props} />,
-                              pre: ({node, ...props}) => (
+                              ul: ({...props}) => <ul className="text-gray-200 space-y-2 ml-4 mb-4" {...props} />,
+                              ol: ({...props}) => <ol className="text-gray-200 space-y-2 ml-4 mb-4" {...props} />,
+                              li: ({...props}) => <li className="text-gray-200 flex items-start space-x-2" {...props} />,
+                              strong: ({...props}) => <strong className="text-white font-bold" {...props} />,
+                              em: ({...props}) => <em className="text-blue-300 italic font-medium" {...props} />,
+                              code: ({...props}) => <code className="bg-gray-700/60 text-cyan-300 px-2 py-1 rounded-md font-mono text-sm" {...props} />,
+                              pre: ({...props}) => (
                                 <pre className="bg-gray-800/60 border border-gray-600/40 rounded-xl p-6 overflow-x-auto backdrop-blur-sm mb-4" {...props} />
                               ),
-                              blockquote: ({node, ...props}) => (
+                              blockquote: ({...props}) => (
                                 <blockquote className="border-l-4 border-purple-500/60 pl-6 text-gray-300 italic bg-gray-800/30 py-4 rounded-r-xl mb-4" {...props} />
                               ),
-                              table: ({node, ...props}) => (
+                              table: ({...props}) => (
                                 <div className="overflow-x-auto mb-6">
                                   <div className="bg-gray-800/40 rounded-xl border border-gray-600/40 overflow-hidden">
                                     <table className="min-w-full" {...props} />
                                   </div>
                                 </div>
                               ),
-                              th: ({node, ...props}) => <th className="bg-gray-700/60 text-gray-100 px-6 py-4 text-left font-bold" {...props} />,
-                              td: ({node, ...props}) => <td className="border-t border-gray-600/40 px-6 py-4 text-gray-200" {...props} />,
-                              a: ({node, href, children, ...props}) => {
+                              th: ({...props}) => <th className="bg-gray-700/60 text-gray-100 px-6 py-4 text-left font-bold" {...props} />,
+                              td: ({...props}) => <td className="border-t border-gray-600/40 px-6 py-4 text-gray-200" {...props} />,
+                              a: ({href, children, ...props}) => {
                                 const childText = children?.toString() || '';
                                 
                                 // 구매하기 또는 SHOP NOW 링크인 경우 특별한 버튼 스타일 적용
@@ -987,8 +986,8 @@ export default function Chat() {
                                 // 일반 링크는 기본 스타일
                                 return <a href={href} className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors font-medium" {...props}>{children}</a>;
                               },
-                              p: ({node, ...props}) => <p className="text-gray-200 mb-4 leading-relaxed" {...props} />,
-                              img: ({node, src, alt, ...props}) => {
+                              p: ({...props}) => <p className="text-gray-200 mb-4 leading-relaxed" {...props} />,
+                              img: ({src, alt, ...props}) => {
                                 if (!src) return null;
                                 
                                 // Simple image rendering without carousel overhead
@@ -1015,7 +1014,7 @@ export default function Chat() {
                             >
                               {message.content}
                             </ReactMarkdown>
-                            {message.metadata?.isStreaming && (
+                            {(message.metadata as {isStreaming?: boolean})?.isStreaming && (
                               <span className="inline-block w-2 h-5 bg-green-400 animate-pulse ml-1 rounded-sm"></span>
                             )}
                           </div>
