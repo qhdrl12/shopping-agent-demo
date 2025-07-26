@@ -54,16 +54,17 @@ npm run build
 ## Architecture
 
 ### Agent Workflow
-The system uses a supervisor pattern with four specialized agents:
+The system uses a unified workflow with specialized processing nodes:
 
-1. **Search Agent** (`backend/agents/search_agent.py`): Analyzes user queries and performs Musinsa searches
-2. **Scrape Agent** (`backend/agents/scrape_agent.py`): Extracts detailed product information from URLs
-3. **Analysis Agent** (`backend/agents/analysis_agent.py`): Analyzes scraped data and generates insights
-4. **Response Agent** (`backend/agents/response_agent.py`): Creates final user-friendly responses
+1. **Query Nodes** (`backend/nodes/query_nodes.py`): Analyzes user queries and handles general questions
+2. **Search Nodes** (`backend/nodes/search_nodes.py`): Performs Musinsa product searches and filtering
+3. **Extraction Nodes** (`backend/nodes/extraction_nodes.py`): Extracts and validates product information
+4. **Response Nodes** (`backend/nodes/response_nodes.py`): Creates final user-friendly responses
+5. **Question Nodes** (`backend/nodes/question_nodes.py`): Generates contextual follow-up questions
 
 ### Data Flow
 ```
-User Query → Search Agent → Scrape Agent → Analysis Agent → Response Agent → Final Response
+User Query → Query Analysis → Search/General Response → Product Extraction → Final Response → Suggested Questions
 ```
 
 ### API Endpoints
@@ -88,10 +89,12 @@ LANGSMITH_PROJECT=musinsa-shopping-agent
 ```
 shopping-demo/
 ├── backend/
-│   ├── agents/          # AI agents
 │   ├── api/             # FastAPI endpoints
-│   ├── models/          # Pydantic schemas
-│   └── tools/           # Firecrawl integration
+│   ├── nodes/           # LangGraph processing nodes
+│   ├── workflow/        # Unified workflow orchestration
+│   ├── prompts/         # System prompts and templates
+│   ├── tools/           # Firecrawl integration
+│   └── utils/           # Utility functions
 ├── frontend/frontend/   # Next.js application
 ├── main.py             # Backend entry point
 ├── pyproject.toml      # Python dependencies
@@ -107,11 +110,14 @@ shopping-demo/
 
 ## Key Features
 
-- **Multi-agent Architecture**: Specialized agents for different tasks
-- **Real-time Streaming**: Live updates during agent processing
+- **Unified LangGraph Workflow**: Node-based processing with intelligent routing
+- **Suggested Questions**: AI-generated contextual follow-up questions
+- **Real-time Streaming**: Live updates during agent processing with token-level streaming
 - **Musinsa Integration**: Specialized for Korean fashion e-commerce
+- **Smart Query Handling**: Distinguishes between product searches and general questions
 - **Structured Data**: Pydantic schemas for type safety
 - **Session Management**: Persistent chat sessions
+- **Interactive UI**: Modern chat interface with suggested question cards
 - **Error Handling**: Comprehensive error handling and retry logic
 
 ## Debugging
