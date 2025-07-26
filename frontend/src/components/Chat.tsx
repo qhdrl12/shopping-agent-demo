@@ -51,6 +51,49 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // 카카오페이 결제 처리 함수
+  const handleKakaoPayment = async (productUrl: string) => {
+    try {
+      // 상품 정보를 URL에서 추출하거나 기본값 설정
+      const productName = "무신사 상품"; // 실제로는 AI 응답에서 상품명을 추출해야 함
+      const totalAmount = 100000; // 실제로는 AI 응답에서 가격을 추출해야 함
+      
+      console.log('Initiating Kakao Pay payment for:', productUrl);
+      
+      // 결제 준비 API 호출
+      const response = await fetch('http://localhost:8000/payment/ready', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_name: productName,
+          product_url: productUrl,
+          quantity: 1,
+          total_amount: totalAmount,
+          tax_free_amount: 0
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('결제 준비 요청이 실패했습니다.');
+      }
+
+      const paymentData = await response.json();
+      console.log('Payment ready response:', paymentData);
+
+      // 카카오페이 결제창으로 리다이렉트
+      if (paymentData.next_redirect_pc_url) {
+        window.location.href = paymentData.next_redirect_pc_url;
+      } else {
+        throw new Error('결제 URL을 받을 수 없습니다.');
+      }
+    } catch (error) {
+      console.error('Kakao Pay error:', error);
+      alert('결제 처리 중 오류가 발생했습니다. ' + (error as Error).message);
+    }
+  };
+
   // Define unified process steps - same for all requests but different execution paths
   const getProcessSteps = (): ProcessStep[] => {
     return [
@@ -224,8 +267,8 @@ export default function Chat() {
     scrollToBottom();
   }, [chatState.messages]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || chatState.isLoading) return;
+  const sendMessageWithQuery = async (query: string) => {
+    if (!query.trim() || chatState.isLoading) return;
 
     const requestId = Date.now().toString();
     const initialSteps = getProcessSteps(); // Get unified steps for all requests
@@ -235,7 +278,7 @@ export default function Chat() {
     const userMessage: Message = {
       id: requestId,
       type: 'user',
-      content: input.trim(),
+      content: query.trim(),
       processSteps: initialSteps,
       requestId: requestId
     };
@@ -266,7 +309,7 @@ export default function Chat() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: input.trim(),
+          message: query.trim(),
           session_id: sessionIdToSend
         })
       });
@@ -710,6 +753,16 @@ export default function Chat() {
     }
   };
 
+  const sendMessage = async () => {
+    await sendMessageWithQuery(input);
+  };
+
+  const sendExampleMessage = async (exampleQuery: string) => {
+    if (chatState.isLoading) return;
+    setInput(exampleQuery);
+    await sendMessageWithQuery(exampleQuery);
+  };
+
   const getMessageStyle = (type: string) => {
     switch (type) {
       case 'user':
@@ -804,13 +857,109 @@ export default function Chat() {
                 <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-32 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full opacity-20 animate-ping"></div>
               </div>
               <h2 className="text-3xl font-bold text-gray-200 mb-4">안녕하세요!</h2>
-              <p className="text-lg text-gray-400 mb-2">무신사에서 원하는 제품을 찾아드리겠습니다</p>
+              <p className="text-lg text-gray-400 mb-6">무신사에서 원하는 제품을 찾아드리겠습니다</p>
+              
+              {/* Example Query Buttons */}
+              <div className="max-w-4xl mx-auto mb-8">
+                <p className="text-sm text-gray-400 mb-4 text-center">아래 예시를 클릭해서 바로 시작해보세요!</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    {
+                      emoji: "🧥",
+                      title: "겨울 아우터",
+                      query: "20만원 이하 겨울 코트 추천해줘",
+                      gradient: "from-blue-500/20 to-cyan-500/20",
+                      hoverGradient: "hover:from-blue-400/30 hover:to-cyan-400/30",
+                      borderColor: "border-blue-400/30"
+                    },
+                    {
+                      emoji: "👟",
+                      title: "운동화",
+                      query: "나이키 운동화 찾아줘",
+                      gradient: "from-emerald-500/20 to-teal-500/20",
+                      hoverGradient: "hover:from-emerald-400/30 hover:to-teal-400/30",
+                      borderColor: "border-emerald-400/30"
+                    },
+                    {
+                      emoji: "👔",
+                      title: "정장",
+                      query: "면접용 정장 세트 추천해줘",
+                      gradient: "from-purple-500/20 to-pink-500/20",
+                      hoverGradient: "hover:from-purple-400/30 hover:to-pink-400/30",
+                      borderColor: "border-purple-400/30"
+                    },
+                    {
+                      emoji: "🎒",
+                      title: "가방",
+                      query: "대학생 백팩 추천해줘",
+                      gradient: "from-orange-500/20 to-red-500/20",
+                      hoverGradient: "hover:from-orange-400/30 hover:to-red-400/30",
+                      borderColor: "border-orange-400/30"
+                    },
+                    {
+                      emoji: "🧢",
+                      title: "모자",
+                      query: "캐주얼한 모자 찾아줘",
+                      gradient: "from-indigo-500/20 to-blue-500/20",
+                      hoverGradient: "hover:from-indigo-400/30 hover:to-blue-400/30",
+                      borderColor: "border-indigo-400/30"
+                    },
+                    {
+                      emoji: "👕",
+                      title: "티셔츠",
+                      query: "봄 반팔 티셔츠 추천해줘",
+                      gradient: "from-green-500/20 to-lime-500/20",
+                      hoverGradient: "hover:from-green-400/30 hover:to-lime-400/30",
+                      borderColor: "border-green-400/30"
+                    }
+                  ].map((example, index) => (
+                    <button
+                      key={index}
+                      onClick={() => sendExampleMessage(example.query)}
+                      disabled={chatState.isLoading}
+                      className={`
+                        group relative p-6 rounded-2xl 
+                        bg-gradient-to-br ${example.gradient} ${example.hoverGradient}
+                        backdrop-blur-xl border ${example.borderColor}
+                        transition-all duration-500 transform 
+                        hover:scale-105 hover:shadow-xl hover:shadow-black/20
+                        disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
+                        overflow-hidden
+                      `}
+                    >
+                      {/* Background animation */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                      
+                      {/* Content */}
+                      <div className="relative z-10 text-center space-y-3">
+                        <div className="text-4xl mb-2 transform group-hover:scale-110 transition-transform duration-300">
+                          {example.emoji}
+                        </div>
+                        <h3 className="font-bold text-white text-lg mb-2">
+                          {example.title}
+                        </h3>
+                        <p className="text-gray-300 text-sm leading-relaxed">
+                          {example.query}
+                        </p>
+                        
+                        {/* Click indicator */}
+                        <div className="flex items-center justify-center space-x-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                          <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                          <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                        </div>
+                      </div>
+                      
+                      {/* Shine effect */}
+                      <div className="absolute top-0 -left-4 w-24 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent rotate-12 transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out"></div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
               <div className="space-y-2 text-sm text-gray-500">
                 <p className="inline-block bg-gray-800/50 px-4 py-2 rounded-full backdrop-blur-sm border border-gray-700/30">
-                  💡 예: &quot;20만원 이하 겨울 코트 추천해줘&quot;
-                </p>
-                <p className="inline-block bg-gray-800/50 px-4 py-2 rounded-full backdrop-blur-sm border border-gray-700/30 ml-2">
-                  ⚡ 예: &quot;나이키 운동화 찾아줘&quot;
+                  💡 직접 입력하거나 위 버튼을 클릭해보세요
                 </p>
               </div>
             </div>
@@ -970,10 +1119,11 @@ export default function Chat() {
                                       </a>
                                       
                                       {/* 바로결제 버튼 */}
-                                      <a
-                                        href={href}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          handleKakaoPayment(href || '');
+                                        }}
                                         className="group relative inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-yellow-400/90 via-amber-400/90 to-orange-400/90 hover:from-yellow-300 hover:via-amber-300 hover:to-orange-300 text-black font-bold rounded-2xl transition-all duration-500 transform hover:scale-105 hover:shadow-xl hover:shadow-yellow-400/40 border border-yellow-300/50 hover:border-yellow-200/70 backdrop-blur-lg relative overflow-hidden"
                                       >
                                         <div className="absolute inset-0 bg-gradient-to-r from-yellow-200/20 via-amber-200/20 to-orange-200/20 animate-pulse"></div>
@@ -985,7 +1135,7 @@ export default function Chat() {
                                           </div>
                                           <span className="text-base font-bold tracking-wide">바로결제</span>
                                         </div>
-                                      </a>
+                                      </button>
                                     </div>
                                   );
                                 }

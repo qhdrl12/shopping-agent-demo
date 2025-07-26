@@ -11,6 +11,14 @@ from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
 
 from ..workflow.unified_workflow import unified_workflow
+from ..services.kakao_pay_service import kakao_pay_service
+from ..models.schemas import (
+    PaymentReadyRequest, 
+    PaymentReadyResponse,
+    PaymentApproveRequest, 
+    PaymentApproveResponse,
+    PaymentErrorResponse
+)
 
 # Load environment variables
 load_dotenv()
@@ -267,6 +275,46 @@ async def list_sessions():
         "sessions": list(sessions.keys()),
         "count": len(sessions)
     }
+
+# Kakao Pay Payment Endpoints
+
+@app.post("/payment/ready", response_model=PaymentReadyResponse)
+async def payment_ready(payment_request: PaymentReadyRequest):
+    """카카오페이 결제 준비 API"""
+    try:
+        response = await kakao_pay_service.prepare_payment(payment_request)
+        return response
+    except PaymentErrorResponse as e:
+        raise HTTPException(status_code=400, detail=e.dict())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"결제 준비 중 오류가 발생했습니다: {str(e)}")
+
+@app.post("/payment/approve", response_model=PaymentApproveResponse)
+async def payment_approve(approve_request: PaymentApproveRequest):
+    """카카오페이 결제 승인 API"""
+    try:
+        response = await kakao_pay_service.approve_payment(approve_request)
+        return response
+    except PaymentErrorResponse as e:
+        raise HTTPException(status_code=400, detail=e.dict())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"결제 승인 중 오류가 발생했습니다: {str(e)}")
+
+@app.get("/payment/session/{tid}")
+async def get_payment_session(tid: str):
+    """결제 세션 정보 조회"""
+    payment_session = kakao_pay_service.get_payment_session(tid)
+    if not payment_session:
+        raise HTTPException(status_code=404, detail="결제 세션을 찾을 수 없습니다")
+    return payment_session
+
+@app.delete("/payment/session/{tid}")
+async def clear_payment_session(tid: str):
+    """결제 세션 정보 삭제"""
+    success = kakao_pay_service.clear_payment_session(tid)
+    if not success:
+        raise HTTPException(status_code=404, detail="결제 세션을 찾을 수 없습니다")
+    return {"message": "결제 세션이 삭제되었습니다"}
 
 if __name__ == "__main__":
     import uvicorn

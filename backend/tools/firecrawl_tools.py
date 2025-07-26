@@ -173,7 +173,6 @@ def scrape_product_page(query: str, query_terms: Optional[str]) -> List[str]:
                     if values and values[0]:
                         params[key] = values[0]
 
-        #TODO 무신사 키워드를 프롬프트로 제공해서 고도화
         url = f"https://www.musinsa.com/search/musinsa/goods?{urlencode(params)}"
         print(f"search url: {url}")
 
@@ -217,29 +216,32 @@ def extract_product_info(url: str) -> str:
                   Must be a valid HTTP/HTTPS URL.
     
     Returns:
-        str: JSON string containing structured product information, or error message.
-             The JSON includes: name, brand, price, discount_price, rating, 
-             review_count, category, colors, sizes, images, description, features.
+        dict | str: Dictionary containing structured product information, or error message string.
+                   The dictionary includes: name, price, original_price, discount_info, 
+                   reward_points, shipping_info, size_info, stock_status, images, 
+                   rating, colors, description, features, review_count.
     
     Schema:
         The extraction follows this JSON schema:
         - name (string): Product name
-        - brand (string): Brand name
-        - price (integer): Original price in KRW
-        - discount_price (integer): Discounted price in KRW
+        - price (number): Current selling price in KRW
+        - original_price (number): Original price before discount (if available)
+        - discount_info (string): Discount percentage or amount
+        - reward_points (number): Points earned when purchasing
+        - shipping_info (string): Shipping information
+        - size_info (string): Available sizes
+        - stock_status (string): Stock availability status
+        - images (array): Product image URLs (all available images)
         - rating (number): Product rating (1-5 scale)
-        - review_count (integer): Number of reviews
-        - category (string): Product category
         - colors (array): Available color options
-        - sizes (array): Available size options
-        - images (array): Product image URLs
         - description (string): Product description
         - features (array): Key product features
+        - review_count (number): Number of customer reviews
     
     Example:
-        >>> result = extract_product_info('https://www.musinsa.com/product/1234567')
+        >>> result = extract_product_info('https://www.musinsa.com/products/1234567')
         >>> print(result)
-        '{"name": "나이키 에어맥스 90", "brand": "나이키", "price": 139000, ...}'
+        {'name': '나이키 에어맥스 90', 'price': 139000, 'original_price': 159000, ...}
     """
     try:
         print(f"start extract_product_info : {url}")
@@ -356,14 +358,10 @@ firecrawl_tools = [search_musinsa, scrape_product_page, extract_product_info]
 
 
 if __name__ == "__main__":
-    # extract = extract_product_info.invoke("https://www.musinsa.com/products/4998882")
-    # print(extract)
-    
-    # Test with the HTML you provided
-        
+    # Test with the HTML you provided    
     print("\nActual scraping result:")
     result = scrape_product_page.invoke("나이키 운동화")
     print(f"result: {result}")
     # print(f"Found {len(result.get('product_links', []))} product links:")
-    for link in result[:20]:  # Show first 10 links
+    for link in result[:10]:  # Show first 10 links
         print(f"  - {link}")

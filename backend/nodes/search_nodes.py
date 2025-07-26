@@ -42,11 +42,11 @@ class SearchNodes:
 
     def search_products(self, state) -> dict:
         """
-        Enhanced fallback search strategy:
-        1. First try scrape_product_page for direct product search
-        2. If no results and category exists, retry without category
-        3. Fallback to search_musinsa for site-wide search only if still no results
-        4. Return unique links
+        3단계 검색 전략:
+        1. 직접 상품 페이지 스크래핑 (scrape_product_page) - 가장 빠르고 정확
+        2. 카테고리 제거 후 재검색 (category 파라미터가 있는 경우)
+        3. 사이트 검색 API (search_musinsa) - 최후 폴백 방법
+        4. 중복 URL 제거 후 반환
         """
         
         print(f"Starting search parameters: {state['search_parameters']}")
@@ -161,7 +161,7 @@ class SearchNodes:
                 product_links.append(url)
         
         return {
-            "filtered_product_links": product_links[:5],  # Limit to 10 products
+            "filtered_product_links": product_links[:5],  # 상위 5개 상품으로 제한
             "current_step": "links_filtered"
         }
     
@@ -204,7 +204,7 @@ class SearchNodes:
         except Exception:
             return False
     
-    # TODO 해당 로직 점거 필요. 불필요하다면 제거 후 Optimzation 으로 변환 (2025-07-22)
+    # TODO: 현재 사용되지 않는 메서드. 검색 최적화 필요시 활용 가능 (2025-07-22)
     def _expand_query(self, original_query: str) -> List[str]:
         """
         Expand search query with related terms and variations
