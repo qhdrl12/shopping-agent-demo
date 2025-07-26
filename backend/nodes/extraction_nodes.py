@@ -16,12 +16,12 @@ from ..prompts.system_prompts import PRODUCT_VALIDATION_PROMPT
 class ExtractionNodes:
     """Nodes for product data extraction and validation"""
     
-    def __init__(self, model_name: str = "gpt-4.1-mini"):
+    def __init__(self, model_name: str = "openai/gpt-4.1"):
         """
         데이터 추출 노드 초기화
         
         Args:
-            model_name: 사용할 LLM 모델명 (기본: gpt-4.1-mini)
+            model_name: 사용할 LLM 모델명 (기본: openai/gpt-4.1)
         """
         self.llm = load_chat_model(model_name)
     

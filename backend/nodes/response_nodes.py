@@ -18,7 +18,7 @@ from ..prompts.system_prompts import (
 class ResponseNodes:
     """Nodes for generating final responses"""
     
-    def __init__(self, model_name: str = "gpt-4.1"):
+    def __init__(self, model_name: str = "openai/gpt-4.1"):
         """
         응답 생성 노드 초기화
         

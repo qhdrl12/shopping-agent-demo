@@ -77,7 +77,7 @@ class QueryOptimizationOutput(BaseModel):
 class QueryNodes:
     """Nodes for query analysis and handling with streaming support"""
     
-    def __init__(self, model_name: str = "gpt-4.1"):
+    def __init__(self, model_name: str = "openai/gpt-4.1"):
         """
         쿼리 분석 노드 초기화
         

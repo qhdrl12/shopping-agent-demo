@@ -19,6 +19,7 @@ interface Message {
     results_count: number;
     search_url: string;
   };
+  suggestedQuestions?: string[];
 }
 
 interface ProcessStep {
@@ -111,6 +112,74 @@ export default function Chat() {
 
 
 
+  // Render suggested questions component
+  const renderSuggestedQuestions = (questions: string[]) => {
+    if (!questions || questions.length === 0) {
+      return null;
+    }
+    
+    return (
+      <div className="mt-6">
+        <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-xl border border-gray-600/30 rounded-2xl p-6 shadow-xl">
+          <div className="flex items-center space-x-3 mb-5">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              💡 이런 것도 궁금하지 않으세요?
+            </h3>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-3">
+            {questions.map((question, index) => (
+              <button
+                key={index}
+                onClick={() => sendExampleMessage(question)}
+                disabled={chatState.isLoading}
+                className="group relative p-4 rounded-xl bg-gradient-to-r from-gray-700/40 to-gray-800/40 hover:from-purple-700/30 hover:to-pink-700/30 backdrop-blur-sm border border-gray-600/20 hover:border-purple-500/40 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-left overflow-hidden"
+              >
+                <div className="flex items-center space-x-3 relative z-10">
+                  <div className="flex-shrink-0">
+                    <div className="w-6 h-6 rounded-full bg-purple-500/20 border border-purple-400/30 flex items-center justify-center group-hover:bg-purple-500/30 group-hover:border-purple-400/50 transition-all duration-200">
+                      <span className="text-xs font-bold text-purple-400 group-hover:text-purple-300">
+                        {index + 1}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-200 font-medium leading-relaxed group-hover:text-white transition-colors duration-200">
+                      {question}
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <svg className="w-4 h-4 text-gray-400 group-hover:text-purple-300 transition-all duration-200 transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+                
+                {/* Shine effect on hover */}
+                <div className="absolute top-0 -left-4 w-24 h-full bg-gradient-to-r from-transparent via-white/10 to-transparent rotate-12 transform -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out"></div>
+                
+                {/* Background glow effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-600/5 via-pink-600/5 to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
+              </button>
+            ))}
+          </div>
+          
+          <div className="mt-5 flex items-center justify-center space-x-2 text-sm text-gray-400">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M6.672 1.911a1 1 0 10-1.932.518l.259.966a1 1 0 001.932-.518l-.26-.966zM2.429 4.74a1 1 0 10-.517 1.932l.966.259a1 1 0 00.517-1.932l-.966-.26zm8.814-.569a1 1 0 00-1.415-1.414l-.707.707a1 1 0 101.415 1.414l.707-.707zm-7.071 7.072l.707-.707A1 1 0 003.465 9.12l-.708.707a1 1 0 001.415 1.415zm3.2-5.171a1 1 0 00-1.3 1.3l4 10a1 1 0 001.823.075l1.38-2.759 3.018 3.02a1 1 0 001.414-1.415l-3.019-3.02 2.76-1.379a1 1 0 00-.076-1.822l-10-4z" clipRule="evenodd" />
+            </svg>
+            <span>클릭하면 바로 질문할 수 있어요</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Render search metadata component
   const renderSearchMetadata = (searchMetadata: Message['searchMetadata']) => {
     if (!searchMetadata) return null;
@@ -200,7 +269,8 @@ export default function Chat() {
                   'filter_product_links': '⚡',
                   'extract_product_data': '📋',
                   'validate_and_select': '✨',
-                  'generate_final_response': '🎯'
+                  'generate_final_response': '🎯',
+                  'generate_suggested_questions': '💡'
                 };
                 
                 if (status === 'completed') return '✅';
@@ -365,12 +435,16 @@ export default function Chat() {
               
               // Handle different types of streaming data
               if (parsed.type === 'step') {
-                console.log(`Processing step: ${parsed.current_step}`);
                 
                 const stepId = parsed.current_step;
                 
+                // Skip generate_suggested_questions step in UI (runs in background)
+                if (stepId === 'generate_suggested_questions') {
+                  continue;
+                }
+                
                 // Determine if this is a completion step
-                const isCompletion = stepId.includes('_') && !['analyze_query', 'optimize_search_query', 'search_products', 'filter_product_links', 'extract_product_data', 'validate_and_select', 'generate_final_response', 'handle_general_query'].includes(stepId);
+                const isCompletion = stepId.includes('_') && !['analyze_query', 'optimize_search_query', 'search_products', 'filter_product_links', 'extract_product_data', 'validate_and_select', 'generate_final_response', 'generate_suggested_questions', 'handle_general_query'].includes(stepId);
                 
                 setChatState(prev => {
                   // Detect workflow type and update steps accordingly
@@ -400,7 +474,7 @@ export default function Chat() {
                     // Continue with normal step processing
                   }
                   
-                  // Define step order based on workflow type
+                  // Define step order based on workflow type (generate_suggested_questions is hidden but runs in background)
                   const stepOrder = workflowType === 'general' 
                     ? ['start', 'analyze_query', 'generate_final_response'] // General: skip intermediate steps
                     : ['start', 'analyze_query', 'optimize_search_query', 'search_products', 'filter_product_links', 'extract_product_data', 'validate_and_select', 'generate_final_response']; // Search: all steps
@@ -498,7 +572,11 @@ export default function Chat() {
                 });
               } else if (parsed.type === 'step_complete') {
                 // Handle step completion - explicitly mark step as completed
-                console.log(`Step completed: ${parsed.completed_step}`);
+                
+                // Skip generate_suggested_questions step completion in UI
+                if (parsed.completed_step === 'generate_suggested_questions') {
+                  continue;
+                }
                 
                 setChatState(prev => {
                   const updatedSteps = prev.processSteps.map(step => {
@@ -665,7 +743,6 @@ export default function Chat() {
                 });
               } else if (parsed.type === 'complete') {
                 // Handle final completion
-                console.log('Received completion signal');
                 setChatState(prev => {
                   let newMessages = [...prev.messages];
                   
@@ -681,7 +758,8 @@ export default function Chat() {
                       newMessages.push({
                         id: Date.now().toString() + '_ai',
                         type: 'ai',
-                        content: parsed.response
+                        content: parsed.response,
+                        suggestedQuestions: parsed.suggested_questions || []
                       });
                     }
                   }
@@ -694,9 +772,13 @@ export default function Chat() {
                     if (msg.requestId === prev.currentRequestId && msg.type === 'user') {
                       return { ...msg, processSteps: completedSteps };
                     }
-                    // Remove streaming indicator from AI messages
+                    // Remove streaming indicator from AI messages and add suggested questions
                     if (msg.type === 'ai' && msg.metadata?.isStreaming) {
-                      return { ...msg, metadata: { ...msg.metadata, isStreaming: false } };
+                      return { 
+                        ...msg, 
+                        metadata: { ...msg.metadata, isStreaming: false },
+                        suggestedQuestions: parsed.suggested_questions || []
+                      };
                     }
                     return msg;
                   });
@@ -1177,6 +1259,11 @@ export default function Chat() {
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Render suggested questions after AI response */}
+                    {message.suggestedQuestions && message.suggestedQuestions.length > 0 && (
+                      renderSuggestedQuestions(message.suggestedQuestions)
+                    )}
                   </div>
                 </div>
               );

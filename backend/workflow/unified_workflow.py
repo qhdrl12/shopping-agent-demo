@@ -23,6 +23,7 @@ from ..nodes.query_nodes import QueryNodes
 from ..nodes.search_nodes import SearchNodes
 from ..nodes.extraction_nodes import ExtractionNodes
 from ..nodes.response_nodes import ResponseNodes
+from ..nodes.question_nodes import QuestionNodes
 
 
 class WorkflowState(TypedDict):
@@ -44,6 +45,7 @@ class WorkflowState(TypedDict):
     
     # Response generation
     final_response: str
+    suggested_questions: List[str]
     
     # Workflow control
     current_step: str
@@ -52,11 +54,12 @@ class WorkflowState(TypedDict):
 class UnifiedShoppingWorkflow:
     """Main workflow class that orchestrates the shopping assistance process"""
     
-    def __init__(self, model_name: str = "gpt-4.1"):
+    def __init__(self, model_name: str = "openai/gpt-4.1"):
         self.query_nodes = QueryNodes(model_name)
         self.search_nodes = SearchNodes()
         self.extraction_nodes = ExtractionNodes(model_name)
         self.response_nodes = ResponseNodes(model_name)
+        self.question_nodes = QuestionNodes(model_name)
         
         self.saver = InMemorySaver()
         self.workflow = self._build_workflow()
@@ -75,6 +78,7 @@ class UnifiedShoppingWorkflow:
         workflow.add_node("extract_product_data", self.extraction_nodes.extract_product_data)
         workflow.add_node("validate_and_select", self.extraction_nodes.validate_and_select)
         workflow.add_node("generate_final_response", self.response_nodes.generate_final_response)
+        workflow.add_node("generate_suggested_questions", self.question_nodes.generate_suggested_questions)
         
         # Set entry point
         workflow.set_entry_point("analyze_query")
@@ -89,7 +93,7 @@ class UnifiedShoppingWorkflow:
             }
         )
         
-        workflow.add_edge("handle_general_query", END)
+        workflow.add_edge("handle_general_query", "generate_suggested_questions")
         workflow.add_edge("optimize_search_query", "search_products")
         workflow.add_edge("search_products", "filter_product_links")
         
@@ -113,7 +117,8 @@ class UnifiedShoppingWorkflow:
             }
         )
         
-        workflow.add_edge("generate_final_response", END)
+        workflow.add_edge("generate_final_response", "generate_suggested_questions")
+        workflow.add_edge("generate_suggested_questions", END)
 
         return workflow.compile(checkpointer=self.saver)
     
