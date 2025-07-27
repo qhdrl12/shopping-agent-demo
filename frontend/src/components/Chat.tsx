@@ -19,6 +19,7 @@ interface Message {
     results_count: number;
     search_url: string;
   };
+  suggestedQuestions?: string[];
 }
 
 interface ProcessStep {
@@ -51,6 +52,49 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // 카카오페이 결제 처리 함수
+  const handleKakaoPayment = async (productUrl: string) => {
+    try {
+      // 상품 정보를 URL에서 추출하거나 기본값 설정
+      const productName = "무신사 상품"; // 실제로는 AI 응답에서 상품명을 추출해야 함
+      const totalAmount = 100000; // 실제로는 AI 응답에서 가격을 추출해야 함
+      
+      console.log('Initiating Kakao Pay payment for:', productUrl);
+      
+      // 결제 준비 API 호출
+      const response = await fetch('http://localhost:8000/payment/ready', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_name: productName,
+          product_url: productUrl,
+          quantity: 1,
+          total_amount: totalAmount,
+          tax_free_amount: 0
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('결제 준비 요청이 실패했습니다.');
+      }
+
+      const paymentData = await response.json();
+      console.log('Payment ready response:', paymentData);
+
+      // 카카오페이 결제창으로 리다이렉트
+      if (paymentData.next_redirect_pc_url) {
+        window.location.href = paymentData.next_redirect_pc_url;
+      } else {
+        throw new Error('결제 URL을 받을 수 없습니다.');
+      }
+    } catch (error) {
+      console.error('Kakao Pay error:', error);
+      alert('결제 처리 중 오류가 발생했습니다. ' + (error as Error).message);
+    }
+  };
+
   // Define unified process steps - same for all requests but different execution paths
   const getProcessSteps = (): ProcessStep[] => {
     return [
@@ -67,6 +111,74 @@ export default function Chat() {
 
 
 
+
+  // Render suggested questions component
+  const renderSuggestedQuestions = (questions: string[]) => {
+    if (!questions || questions.length === 0) {
+      return null;
+    }
+    
+    return (
+      <div className="mt-6">
+        <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-xl border border-gray-600/30 rounded-2xl p-6 shadow-xl">
+          <div className="flex items-center space-x-3 mb-5">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              💡 이런 것도 궁금하지 않으세요?
+            </h3>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-3">
+            {questions.map((question, index) => (
+              <button
+                key={index}
+                onClick={() => sendExampleMessage(question)}
+                disabled={chatState.isLoading}
+                className="group relative p-4 rounded-xl bg-gradient-to-r from-gray-700/40 to-gray-800/40 hover:from-purple-700/30 hover:to-pink-700/30 backdrop-blur-sm border border-gray-600/20 hover:border-purple-500/40 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-left overflow-hidden"
+              >
+                <div className="flex items-center space-x-3 relative z-10">
+                  <div className="flex-shrink-0">
+                    <div className="w-6 h-6 rounded-full bg-purple-500/20 border border-purple-400/30 flex items-center justify-center group-hover:bg-purple-500/30 group-hover:border-purple-400/50 transition-all duration-200">
+                      <span className="text-xs font-bold text-purple-400 group-hover:text-purple-300">
+                        {index + 1}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-200 font-medium leading-relaxed group-hover:text-white transition-colors duration-200">
+                      {question}
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <svg className="w-4 h-4 text-gray-400 group-hover:text-purple-300 transition-all duration-200 transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+                
+                {/* Shine effect on hover */}
+                <div className="absolute top-0 -left-4 w-24 h-full bg-gradient-to-r from-transparent via-white/10 to-transparent rotate-12 transform -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out"></div>
+                
+                {/* Background glow effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-600/5 via-pink-600/5 to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
+              </button>
+            ))}
+          </div>
+          
+          <div className="mt-5 flex items-center justify-center space-x-2 text-sm text-gray-400">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M6.672 1.911a1 1 0 10-1.932.518l.259.966a1 1 0 001.932-.518l-.26-.966zM2.429 4.74a1 1 0 10-.517 1.932l.966.259a1 1 0 00.517-1.932l-.966-.26zm8.814-.569a1 1 0 00-1.415-1.414l-.707.707a1 1 0 101.415 1.414l.707-.707zm-7.071 7.072l.707-.707A1 1 0 003.465 9.12l-.708.707a1 1 0 001.415 1.415zm3.2-5.171a1 1 0 00-1.3 1.3l4 10a1 1 0 001.823.075l1.38-2.759 3.018 3.02a1 1 0 001.414-1.415l-3.019-3.02 2.76-1.379a1 1 0 00-.076-1.822l-10-4z" clipRule="evenodd" />
+            </svg>
+            <span>클릭하면 바로 질문할 수 있어요</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Render search metadata component
   const renderSearchMetadata = (searchMetadata: Message['searchMetadata']) => {
@@ -157,7 +269,8 @@ export default function Chat() {
                   'filter_product_links': '⚡',
                   'extract_product_data': '📋',
                   'validate_and_select': '✨',
-                  'generate_final_response': '🎯'
+                  'generate_final_response': '🎯',
+                  'generate_suggested_questions': '💡'
                 };
                 
                 if (status === 'completed') return '✅';
@@ -224,8 +337,8 @@ export default function Chat() {
     scrollToBottom();
   }, [chatState.messages]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || chatState.isLoading) return;
+  const sendMessageWithQuery = async (query: string) => {
+    if (!query.trim() || chatState.isLoading) return;
 
     const requestId = Date.now().toString();
     const initialSteps = getProcessSteps(); // Get unified steps for all requests
@@ -235,7 +348,7 @@ export default function Chat() {
     const userMessage: Message = {
       id: requestId,
       type: 'user',
-      content: input.trim(),
+      content: query.trim(),
       processSteps: initialSteps,
       requestId: requestId
     };
@@ -266,7 +379,7 @@ export default function Chat() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: input.trim(),
+          message: query.trim(),
           session_id: sessionIdToSend
         })
       });
@@ -322,12 +435,16 @@ export default function Chat() {
               
               // Handle different types of streaming data
               if (parsed.type === 'step') {
-                console.log(`Processing step: ${parsed.current_step}`);
                 
                 const stepId = parsed.current_step;
                 
+                // Skip generate_suggested_questions step in UI (runs in background)
+                if (stepId === 'generate_suggested_questions') {
+                  continue;
+                }
+                
                 // Determine if this is a completion step
-                const isCompletion = stepId.includes('_') && !['analyze_query', 'optimize_search_query', 'search_products', 'filter_product_links', 'extract_product_data', 'validate_and_select', 'generate_final_response', 'handle_general_query'].includes(stepId);
+                const isCompletion = stepId.includes('_') && !['analyze_query', 'optimize_search_query', 'search_products', 'filter_product_links', 'extract_product_data', 'validate_and_select', 'generate_final_response', 'generate_suggested_questions', 'handle_general_query'].includes(stepId);
                 
                 setChatState(prev => {
                   // Detect workflow type and update steps accordingly
@@ -357,7 +474,7 @@ export default function Chat() {
                     // Continue with normal step processing
                   }
                   
-                  // Define step order based on workflow type
+                  // Define step order based on workflow type (generate_suggested_questions is hidden but runs in background)
                   const stepOrder = workflowType === 'general' 
                     ? ['start', 'analyze_query', 'generate_final_response'] // General: skip intermediate steps
                     : ['start', 'analyze_query', 'optimize_search_query', 'search_products', 'filter_product_links', 'extract_product_data', 'validate_and_select', 'generate_final_response']; // Search: all steps
@@ -455,7 +572,11 @@ export default function Chat() {
                 });
               } else if (parsed.type === 'step_complete') {
                 // Handle step completion - explicitly mark step as completed
-                console.log(`Step completed: ${parsed.completed_step}`);
+                
+                // Skip generate_suggested_questions step completion in UI
+                if (parsed.completed_step === 'generate_suggested_questions') {
+                  continue;
+                }
                 
                 setChatState(prev => {
                   const updatedSteps = prev.processSteps.map(step => {
@@ -622,7 +743,6 @@ export default function Chat() {
                 });
               } else if (parsed.type === 'complete') {
                 // Handle final completion
-                console.log('Received completion signal');
                 setChatState(prev => {
                   let newMessages = [...prev.messages];
                   
@@ -638,7 +758,8 @@ export default function Chat() {
                       newMessages.push({
                         id: Date.now().toString() + '_ai',
                         type: 'ai',
-                        content: parsed.response
+                        content: parsed.response,
+                        suggestedQuestions: parsed.suggested_questions || []
                       });
                     }
                   }
@@ -651,9 +772,13 @@ export default function Chat() {
                     if (msg.requestId === prev.currentRequestId && msg.type === 'user') {
                       return { ...msg, processSteps: completedSteps };
                     }
-                    // Remove streaming indicator from AI messages
+                    // Remove streaming indicator from AI messages and add suggested questions
                     if (msg.type === 'ai' && msg.metadata?.isStreaming) {
-                      return { ...msg, metadata: { ...msg.metadata, isStreaming: false } };
+                      return { 
+                        ...msg, 
+                        metadata: { ...msg.metadata, isStreaming: false },
+                        suggestedQuestions: parsed.suggested_questions || []
+                      };
                     }
                     return msg;
                   });
@@ -708,6 +833,16 @@ export default function Chat() {
         };
       });
     }
+  };
+
+  const sendMessage = async () => {
+    await sendMessageWithQuery(input);
+  };
+
+  const sendExampleMessage = async (exampleQuery: string) => {
+    if (chatState.isLoading) return;
+    setInput(exampleQuery);
+    await sendMessageWithQuery(exampleQuery);
   };
 
   const getMessageStyle = (type: string) => {
@@ -804,13 +939,109 @@ export default function Chat() {
                 <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-32 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full opacity-20 animate-ping"></div>
               </div>
               <h2 className="text-3xl font-bold text-gray-200 mb-4">안녕하세요!</h2>
-              <p className="text-lg text-gray-400 mb-2">무신사에서 원하는 제품을 찾아드리겠습니다</p>
+              <p className="text-lg text-gray-400 mb-6">무신사에서 원하는 제품을 찾아드리겠습니다</p>
+              
+              {/* Example Query Buttons */}
+              <div className="max-w-4xl mx-auto mb-8">
+                <p className="text-sm text-gray-400 mb-4 text-center">아래 예시를 클릭해서 바로 시작해보세요!</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    {
+                      emoji: "🧥",
+                      title: "겨울 아우터",
+                      query: "20만원 이하 겨울 코트 추천해줘",
+                      gradient: "from-blue-500/20 to-cyan-500/20",
+                      hoverGradient: "hover:from-blue-400/30 hover:to-cyan-400/30",
+                      borderColor: "border-blue-400/30"
+                    },
+                    {
+                      emoji: "👟",
+                      title: "운동화",
+                      query: "나이키 운동화 찾아줘",
+                      gradient: "from-emerald-500/20 to-teal-500/20",
+                      hoverGradient: "hover:from-emerald-400/30 hover:to-teal-400/30",
+                      borderColor: "border-emerald-400/30"
+                    },
+                    {
+                      emoji: "👔",
+                      title: "정장",
+                      query: "면접용 정장 세트 추천해줘",
+                      gradient: "from-purple-500/20 to-pink-500/20",
+                      hoverGradient: "hover:from-purple-400/30 hover:to-pink-400/30",
+                      borderColor: "border-purple-400/30"
+                    },
+                    {
+                      emoji: "🎒",
+                      title: "가방",
+                      query: "대학생 백팩 추천해줘",
+                      gradient: "from-orange-500/20 to-red-500/20",
+                      hoverGradient: "hover:from-orange-400/30 hover:to-red-400/30",
+                      borderColor: "border-orange-400/30"
+                    },
+                    {
+                      emoji: "🧢",
+                      title: "모자",
+                      query: "캐주얼한 모자 찾아줘",
+                      gradient: "from-indigo-500/20 to-blue-500/20",
+                      hoverGradient: "hover:from-indigo-400/30 hover:to-blue-400/30",
+                      borderColor: "border-indigo-400/30"
+                    },
+                    {
+                      emoji: "👕",
+                      title: "티셔츠",
+                      query: "봄 반팔 티셔츠 추천해줘",
+                      gradient: "from-green-500/20 to-lime-500/20",
+                      hoverGradient: "hover:from-green-400/30 hover:to-lime-400/30",
+                      borderColor: "border-green-400/30"
+                    }
+                  ].map((example, index) => (
+                    <button
+                      key={index}
+                      onClick={() => sendExampleMessage(example.query)}
+                      disabled={chatState.isLoading}
+                      className={`
+                        group relative p-6 rounded-2xl 
+                        bg-gradient-to-br ${example.gradient} ${example.hoverGradient}
+                        backdrop-blur-xl border ${example.borderColor}
+                        transition-all duration-500 transform 
+                        hover:scale-105 hover:shadow-xl hover:shadow-black/20
+                        disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
+                        overflow-hidden
+                      `}
+                    >
+                      {/* Background animation */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                      
+                      {/* Content */}
+                      <div className="relative z-10 text-center space-y-3">
+                        <div className="text-4xl mb-2 transform group-hover:scale-110 transition-transform duration-300">
+                          {example.emoji}
+                        </div>
+                        <h3 className="font-bold text-white text-lg mb-2">
+                          {example.title}
+                        </h3>
+                        <p className="text-gray-300 text-sm leading-relaxed">
+                          {example.query}
+                        </p>
+                        
+                        {/* Click indicator */}
+                        <div className="flex items-center justify-center space-x-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                          <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                          <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                        </div>
+                      </div>
+                      
+                      {/* Shine effect */}
+                      <div className="absolute top-0 -left-4 w-24 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent rotate-12 transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out"></div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
               <div className="space-y-2 text-sm text-gray-500">
                 <p className="inline-block bg-gray-800/50 px-4 py-2 rounded-full backdrop-blur-sm border border-gray-700/30">
-                  💡 예: &quot;20만원 이하 겨울 코트 추천해줘&quot;
-                </p>
-                <p className="inline-block bg-gray-800/50 px-4 py-2 rounded-full backdrop-blur-sm border border-gray-700/30 ml-2">
-                  ⚡ 예: &quot;나이키 운동화 찾아줘&quot;
+                  💡 직접 입력하거나 위 버튼을 클릭해보세요
                 </p>
               </div>
             </div>
@@ -970,10 +1201,11 @@ export default function Chat() {
                                       </a>
                                       
                                       {/* 바로결제 버튼 */}
-                                      <a
-                                        href={href}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          handleKakaoPayment(href || '');
+                                        }}
                                         className="group relative inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-yellow-400/90 via-amber-400/90 to-orange-400/90 hover:from-yellow-300 hover:via-amber-300 hover:to-orange-300 text-black font-bold rounded-2xl transition-all duration-500 transform hover:scale-105 hover:shadow-xl hover:shadow-yellow-400/40 border border-yellow-300/50 hover:border-yellow-200/70 backdrop-blur-lg relative overflow-hidden"
                                       >
                                         <div className="absolute inset-0 bg-gradient-to-r from-yellow-200/20 via-amber-200/20 to-orange-200/20 animate-pulse"></div>
@@ -985,7 +1217,7 @@ export default function Chat() {
                                           </div>
                                           <span className="text-base font-bold tracking-wide">바로결제</span>
                                         </div>
-                                      </a>
+                                      </button>
                                     </div>
                                   );
                                 }
@@ -1027,6 +1259,11 @@ export default function Chat() {
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Render suggested questions after AI response */}
+                    {message.suggestedQuestions && message.suggestedQuestions.length > 0 && (
+                      renderSuggestedQuestions(message.suggestedQuestions)
+                    )}
                   </div>
                 </div>
               );

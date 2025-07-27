@@ -11,6 +11,14 @@ from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
 
 from ..workflow.unified_workflow import unified_workflow
+from ..services.kakao_pay_service import kakao_pay_service
+from ..models.schemas import (
+    PaymentReadyRequest, 
+    PaymentReadyResponse,
+    PaymentApproveRequest, 
+    PaymentApproveResponse,
+    PaymentErrorResponse
+)
 
 # Load environment variables
 load_dotenv()
@@ -23,6 +31,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     session_id: str
+    suggested_questions: list[str] = []
     status: str = "completed"
 
 app = FastAPI(title="Musinsa Shopping Agent API", version="1.0.0")
@@ -44,7 +53,8 @@ LLM_NODES = {
     'analyze_query': 'AI가 질문을 분석하고 있습니다...',
     'handle_general_query': 'AI가 답변을 생성하고 있습니다...',
     'optimize_search_query': 'AI가 검색어를 최적화하고 있습니다...',
-    'generate_final_response': 'AI가 최종 답변을 생성하고 있습니다...'
+    'generate_final_response': 'AI가 최종 답변을 생성하고 있습니다...',
+    'generate_suggested_questions': 'AI가 추천 질문을 생성하고 있습니다...'
 }
 
 @app.get("/")
@@ -54,6 +64,43 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "message": "API is running"}
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest):
+    """Handle non-streaming chat requests"""
+    try:
+        # Generate session ID if not provided
+        session_id = request.session_id or str(uuid.uuid4())
+        
+        # Prepare workflow input
+        workflow_input = {
+            "messages": [HumanMessage(content=request.message)]
+        }
+        
+        config = {
+            "configurable": {"thread_id": session_id},
+            "recursion_limit": 15
+        }
+        
+        # Execute workflow
+        result = await unified_workflow.workflow.ainvoke(workflow_input, config=config)
+        
+        # Extract response and suggested questions
+        final_response = result.get('final_response', '응답을 생성할 수 없습니다.')
+        suggested_questions = result.get('suggested_questions', [])
+        
+        # Store session
+        sessions[session_id] = final_response
+        
+        return ChatResponse(
+            response=final_response,
+            session_id=session_id,
+            suggested_questions=suggested_questions,
+            status="completed"
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
@@ -80,6 +127,7 @@ async def chat_stream(request: ChatRequest):
                 workflow_result = None
                 is_streaming_response = False
                 current_node = None
+                captured_questions = []  # Store questions when generated
                 
                 print(f"Starting workflow for: {request.message}")
                 
@@ -98,6 +146,14 @@ async def chat_stream(request: ChatRequest):
                     if event_type == "on_chain_end" and event_name in LLM_NODES:
                         if current_node == event_name:
                             current_node = None  # Reset current node after completion
+                        
+                        # Special handling for question generation completion
+                        if event_name == "generate_suggested_questions":
+                            output = event_data.get("output", {})
+                            questions = output.get("suggested_questions", [])
+                            # Capture questions for later use
+                            captured_questions = questions if questions else []
+                        
                         yield f"data: {json.dumps({
                             'type': 'step_complete',
                             'session_id': session_id,
@@ -172,53 +228,34 @@ async def chat_stream(request: ChatRequest):
                     elif event_type == "on_chain_end" and "workflow" in event_name.lower():
                         workflow_result = event_data.get("output", {})
                 
-                # Handle completion
-                suggested_questions = []
-                if workflow_result:
-                    suggested_questions = workflow_result.get('suggested_questions', [])
+                # Handle completion - use captured questions first, then workflow result
+                suggested_questions = captured_questions if captured_questions else workflow_result.get('suggested_questions', []) if workflow_result else []
                 
-                # If we streamed tokens, send completion; otherwise fallback to full response
+                # Determine final response
+                if is_streaming_response and final_response:
+                    response_text = final_response
+                elif workflow_result and workflow_result.get('final_response'):
+                    response_text = workflow_result.get('final_response', '')
+                else:
+                    response_text = "죄송합니다. 응답을 생성할 수 없습니다."
+                
+                # Send completion response
                 try:
-                    if is_streaming_response and final_response:
-                        print(f"Completing streaming response. Total length: {len(final_response)}")
-                        completion_data = {
-                            'type': 'complete',
-                            'session_id': session_id,
-                            'current_step': 'completed',
-                            'response': final_response,
-                            'suggested_questions': suggested_questions,
-                            'status': 'completed'
-                        }
-                        yield f"data: {json.dumps(completion_data, ensure_ascii=False)}\n\n"
-                    elif workflow_result and workflow_result.get('final_response'):
-                        # Fallback for non-streaming case
-                        final_response = workflow_result.get('final_response', '')
-                        print(f"Fallback to full response: {len(final_response)} chars")
-                        fallback_data = {
-                            'type': 'token', 
-                            'session_id': session_id,
-                            'content': final_response,
-                            'suggested_questions': suggested_questions,
-                            'status': 'streaming'
-                        }
-                        yield f"data: {json.dumps(fallback_data, ensure_ascii=False)}\n\n"
-                    else:
-                        final_response = "죄송합니다. 응답을 생성할 수 없습니다."
-                        error_data = {
-                            'type': 'complete',
-                            'session_id': session_id,
-                            'current_step': 'completed', 
-                            'response': final_response,
-                            'suggested_questions': suggested_questions,
-                            'status': 'completed'
-                        }
-                        yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+                    completion_data = {
+                        'type': 'complete',
+                        'session_id': session_id,
+                        'current_step': 'completed',
+                        'response': response_text,
+                        'suggested_questions': suggested_questions,
+                        'status': 'completed'
+                    }
+                    yield f"data: {json.dumps(completion_data, ensure_ascii=False)}\n\n"
                 except Exception as e:
                     print(f"Error in completion handling: {e}")
                     yield f"data: {json.dumps({'type': 'error', 'error': f'Completion error: {str(e)}'}, ensure_ascii=False)}\n\n"
                 
                 # Store session response
-                sessions[session_id] = final_response
+                sessions[session_id] = response_text
                 
                 yield "data: [DONE]\n\n"
                 
@@ -267,6 +304,46 @@ async def list_sessions():
         "sessions": list(sessions.keys()),
         "count": len(sessions)
     }
+
+# Kakao Pay Payment Endpoints
+
+@app.post("/payment/ready", response_model=PaymentReadyResponse)
+async def payment_ready(payment_request: PaymentReadyRequest):
+    """카카오페이 결제 준비 API"""
+    try:
+        response = await kakao_pay_service.prepare_payment(payment_request)
+        return response
+    except PaymentErrorResponse as e:
+        raise HTTPException(status_code=400, detail=e.dict())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"결제 준비 중 오류가 발생했습니다: {str(e)}")
+
+@app.post("/payment/approve", response_model=PaymentApproveResponse)
+async def payment_approve(approve_request: PaymentApproveRequest):
+    """카카오페이 결제 승인 API"""
+    try:
+        response = await kakao_pay_service.approve_payment(approve_request)
+        return response
+    except PaymentErrorResponse as e:
+        raise HTTPException(status_code=400, detail=e.dict())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"결제 승인 중 오류가 발생했습니다: {str(e)}")
+
+@app.get("/payment/session/{tid}")
+async def get_payment_session(tid: str):
+    """결제 세션 정보 조회"""
+    payment_session = kakao_pay_service.get_payment_session(tid)
+    if not payment_session:
+        raise HTTPException(status_code=404, detail="결제 세션을 찾을 수 없습니다")
+    return payment_session
+
+@app.delete("/payment/session/{tid}")
+async def clear_payment_session(tid: str):
+    """결제 세션 정보 삭제"""
+    success = kakao_pay_service.clear_payment_session(tid)
+    if not success:
+        raise HTTPException(status_code=404, detail="결제 세션을 찾을 수 없습니다")
+    return {"message": "결제 세션이 삭제되었습니다"}
 
 if __name__ == "__main__":
     import uvicorn

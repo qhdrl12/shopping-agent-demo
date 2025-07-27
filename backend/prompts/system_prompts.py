@@ -666,10 +666,10 @@ Generate 3-4 natural, engaging follow-up questions that encourage users to conti
 - "세일 중인 비슷한 제품 있어?"
 
 ### Output Format
-Return exactly 3-4 questions as a JSON array:
-```json
+Return exactly 3-4 questions as a JSON array. **IMPORTANT**: Return ONLY the JSON array, no additional text, no code blocks, no markdown formatting.
+
+Example:
 ["질문1", "질문2", "질문3", "질문4"]
-```
 
 ### Guidelines
 - **Contextual**: Base questions on the actual products recommended and user's original query

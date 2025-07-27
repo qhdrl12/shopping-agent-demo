@@ -16,11 +16,25 @@ from ..prompts.system_prompts import PRODUCT_VALIDATION_PROMPT
 class ExtractionNodes:
     """Nodes for product data extraction and validation"""
     
-    def __init__(self, model_name: str = "openai/gpt-4.1-mini"):
+    def __init__(self, model_name: str = "openai/gpt-4.1"):
+        """
+        데이터 추출 노드 초기화
+        
+        Args:
+            model_name: 사용할 LLM 모델명 (기본: openai/gpt-4.1)
+        """
         self.llm = load_chat_model(model_name)
     
     def extract_product_data(self, state) -> dict:
-        """Extract product data in parallel"""
+        """
+        병렬로 상품 데이터 추출
+        
+        Args:
+            state: 필터링된 상품 링크 리스트가 포함된 상태
+            
+        Returns:
+            dict: 추출된 상품 데이터와 단계 정보
+        """
         
         async def extract_all_products(urls: List[str]):
             """Extract data from all product URLs in parallel"""
@@ -52,7 +66,15 @@ class ExtractionNodes:
         }
     
     def validate_and_select(self, state) -> dict:
-        """Validate and select relevant products"""
+        """
+        상품 데이터 검증 및 관련 상품 선택
+        
+        Args:
+            state: 추출된 상품 데이터가 포함된 상태
+            
+        Returns:
+            dict: 선택된 상품 데이터(최대 3개)와 단계 정보
+        """
         
         if not state.get("product_data"):
             return {"current_step": "no_valid_data"}
@@ -80,7 +102,7 @@ class ExtractionNodes:
                 product_data_list[i] for i in selected_indices 
                 if isinstance(i, int) and 0 <= i < len(product_data_list)
             ]
-            # Limit to maximum 3 products
+            # 최대 3개 상품으로 제한 (응답 품질 및 속도 최적화)
             selected_products = selected_products[:3]
             product_data = selected_products if selected_products else product_data_list[:3]
         except (json.JSONDecodeError, IndexError, TypeError) as e:

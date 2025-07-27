@@ -28,6 +28,7 @@ BRAND_CODES = {
     "시눈": "sinoon",
     "파라부트": "paraboot",
     "킨": "keen",
+    "나이키": "nike"
 }
 
 def format_brand_codes_for_prompt() -> str:
@@ -76,11 +77,25 @@ class QueryOptimizationOutput(BaseModel):
 class QueryNodes:
     """Nodes for query analysis and handling with streaming support"""
     
-    def __init__(self, model_name: str = "gpt-4.1"):
+    def __init__(self, model_name: str = "openai/gpt-4.1"):
+        """
+        쿼리 분석 노드 초기화
+        
+        Args:
+            model_name: 사용할 LLM 모델명 (기본: gpt-4.1)
+        """
         self.llm = load_chat_model(model_name)
     
     def analyze_query(self, state) -> dict:
-        """Analyze user query to determine if search is needed"""
+        """
+        사용자 쿼리 분석으로 검색 필요성 판단
+        
+        Args:
+            state: 사용자 메시지가 포함된 상태
+            
+        Returns:
+            dict: 쿼리 타입(search_required/general)과 단계 정보
+        """
         
         try:
             analysis_prompt = ChatPromptTemplate.from_messages([
@@ -107,7 +122,15 @@ class QueryNodes:
             }
     
     def handle_general_query(self, state) -> dict:
-        """Handle general queries using conversation history"""
+        """
+        대화 내역을 활용한 일반 쿼리 처리
+        
+        Args:
+            state: 대화 내역이 포함된 상태
+            
+        Returns:
+            dict: 최종 응답, 업데이트된 메시지, 단계 정보
+        """
         
         try:
             general_prompt = ChatPromptTemplate.from_messages([
@@ -134,7 +157,7 @@ class QueryNodes:
                 "current_step": "completed"
             }
     
-    # TODO 검색어 최적화를 위한 optimizer로 개선
+    # TODO: 검색어 최적화 로직을 독립된 Optimizer 클래스로 분리 가능
     def optimize_search_query(self, state) -> dict:
         """
         사용자 질문을 Musinsa 검색에 최적화된 형태로 변환
