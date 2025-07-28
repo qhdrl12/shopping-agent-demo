@@ -100,12 +100,16 @@ class QueryNodes:
         try:
             analysis_prompt = ChatPromptTemplate.from_messages([
                 ("system", QUERY_ANALYSIS_PROMPT),
+                MessagesPlaceholder(variable_name="messages"),
                 ("user", "{query}")
             ])
             
             # Use structured output to ensure only valid responses
             structured_llm = self.llm.with_structured_output(QueryAnalysisOutput)
-            result = structured_llm.invoke(analysis_prompt.format_messages(query=state["messages"][-1].content))            
+            result = structured_llm.invoke(analysis_prompt.format_messages(
+                messages=state["messages"], 
+                query=state["messages"][-1].content
+            ))            
             print(f"Query analysis result: {result.query_type}")
             
             return {
