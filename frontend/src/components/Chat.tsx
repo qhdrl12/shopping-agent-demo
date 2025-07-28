@@ -52,42 +52,35 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // 결제 팝업 상태 관리 (현재는 window.open 사용으로 상태 추적만 함)
+  const [paymentPopup, setPaymentPopup] = useState({ isOpen: false });
+
   // 카카오페이 결제 처리 함수
-  const handleKakaoPayment = async (productUrl: string) => {
+  const handleKakaoPayment = (productUrl: string) => {
     try {
-      // 상품 정보를 URL에서 추출하거나 기본값 설정
-      const productName = "무신사 상품"; // 실제로는 AI 응답에서 상품명을 추출해야 함
-      const totalAmount = 100000; // 실제로는 AI 응답에서 가격을 추출해야 함
+      // 카카오페이 팝업 URL 사용
+      const kakaoPayUrl = 'https://online-payment.kakaopay.com/mockup/bridge/pc/pg/one-time/payment/d696b575889478fd60f25b0c314cb87c63b678e0d63d85a7138c688ee79b0238';
       
-      console.log('Initiating Kakao Pay payment for:', productUrl);
+      // 새 창으로 카카오페이 결제 팝업 열기
+      const popup = window.open(
+        kakaoPayUrl,
+        'kakaoPayPopup',
+        'width=450,height=550,scrollbars=yes,resizable=yes,menubar=no,toolbar=no,location=no,status=no'
+      );
       
-      // 결제 준비 API 호출
-      const response = await fetch('http://localhost:8000/payment/ready', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          product_name: productName,
-          product_url: productUrl,
-          quantity: 1,
-          total_amount: totalAmount,
-          tax_free_amount: 0
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('결제 준비 요청이 실패했습니다.');
-      }
-
-      const paymentData = await response.json();
-      console.log('Payment ready response:', paymentData);
-
-      // 카카오페이 결제창으로 리다이렉트
-      if (paymentData.next_redirect_pc_url) {
-        window.location.href = paymentData.next_redirect_pc_url;
+      if (popup) {
+        setPaymentPopup({ isOpen: true });
+        
+        // 팝업이 닫혔는지 주기적으로 확인
+        const checkPopupClosed = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkPopupClosed);
+            setPaymentPopup({ isOpen: false });
+            
+          }
+        }, 1000);
       } else {
-        throw new Error('결제 URL을 받을 수 없습니다.');
+        alert('팝업이 차단되었습니다. 팝업 차단을 해제해주세요.');
       }
     } catch (error) {
       console.error('Kakao Pay error:', error);
@@ -1267,8 +1260,8 @@ export default function Chat() {
                   </div>
                 </div>
               );
-            } else {
-              // system, tool 메시지들
+            } else if (message.type === 'tool') {
+              // tool 메시지만 표시 (system 메시지는 숨김)
               return (
                 <div key={index} className="flex justify-center animate-fade-in mb-4">
                   <div className={`px-4 py-2 rounded-full ${getMessageStyle(message.type)} max-w-md text-center`}>
@@ -1280,7 +1273,7 @@ export default function Chat() {
                         {message.content}
                       </div>
                     </div>
-                    {message.metadata && message.type === 'tool' && (
+                    {message.metadata && (
                       <details className="mt-2 text-xs opacity-75">
                         <summary className="cursor-pointer hover:text-gray-300 transition-colors">상세 정보</summary>
                         <pre className="mt-2 bg-gray-800/50 p-2 rounded border border-gray-600/30 backdrop-blur-sm font-mono text-xs text-left">
@@ -1291,6 +1284,9 @@ export default function Chat() {
                   </div>
                 </div>
               );
+            } else {
+              // system 메시지는 렌더링하지 않음
+              return null;
             }
           })}
 
@@ -1333,6 +1329,7 @@ export default function Chat() {
           </div>
         </div>
       </div>
+
 
       <style jsx>{`
         @keyframes blob {
