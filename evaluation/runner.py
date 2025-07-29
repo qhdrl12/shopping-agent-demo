@@ -18,7 +18,7 @@ from langsmith import Client
 from langsmith.evaluation import aevaluate
 
 from backend.workflow.unified_workflow import unified_workflow
-from evaluation.evaluators import get_evaluators
+from evaluation.evaluators import get_evaluators, get_parallel_evaluators
 
 
 class ShoppingAgentRunner:
@@ -29,11 +29,12 @@ class ShoppingAgentRunner:
     def __init__(self, langsmith_client: Optional[Client] = None):
         self.client = langsmith_client or Client()
         self.workflow = unified_workflow.workflow
-        self.evaluators = get_evaluators()
+        self.evaluators = get_evaluators()  # LangSmith 호환을 위해 개별 평가자 사용
+        self.parallel_manager = get_parallel_evaluators()  # 단일 쿼리 평가용 병렬 매니저
     
     async def run_agent(self, query: str, session_id: Optional[str] = None) -> Dict[str, Any]:
         """
-        Run the shopping agent on a single query and return structured results
+        Run the shopping agent on a single query and return structured results with detailed tracking
         """
         if not session_id:
             session_id = str(uuid.uuid4())
@@ -56,23 +57,120 @@ class ShoppingAgentRunner:
                 "current_step": ""
             }
             
-            # Run the workflow
+            # Run the workflow with detailed tracking
             config = {
                 "configurable": {"thread_id": session_id},
                 "recursion_limit": 30
             }
             
+            # Track execution details
+            execution_trace = {
+                "nodes_executed": [],
+                "tool_calls": [],
+                "all_messages": [],
+                "state_transitions": [],
+                "errors": []
+            }
+            
             final_state = None
+            step_count = 0
+            # Accumulate state data across all nodes
+            accumulated_state = initial_state.copy()
+            
             async for chunk in self.workflow.astream(initial_state, config):
+                step_count += 1
                 final_state = chunk
+                
+                # Track node execution and accumulate state
+                for node_name, node_state in chunk.items():
+                    # Manually accumulate important fields
+                    key_fields = [
+                        "query_type", "search_query", "search_parameters", 
+                        "search_results", "search_metadata", "filtered_product_links",
+                        "product_data", "extracted_products_count", "final_response", 
+                        "suggested_questions", "current_step"
+                    ]
+                    
+                    for field in key_fields:
+                        if field in node_state and node_state[field] is not None:
+                            # Special handling for lists and dicts to avoid overwriting with empty values
+                            if isinstance(node_state[field], (list, dict)):
+                                if node_state[field]:  # Only update if not empty
+                                    accumulated_state[field] = node_state[field]
+                            else:
+                                accumulated_state[field] = node_state[field]
+                    execution_trace["nodes_executed"].append({
+                        "step": step_count,
+                        "node": node_name,
+                        "timestamp": time.time() - start_time,
+                        "current_step": node_state.get("current_step", "")
+                    })
+                    
+                    # Extract and track messages if they exist
+                    if "messages" in node_state and node_state["messages"]:
+                        for msg in node_state["messages"]:
+                            if hasattr(msg, 'dict'):
+                                msg_dict = msg.dict()
+                            else:
+                                msg_dict = {
+                                    "content": getattr(msg, 'content', str(msg)),
+                                    "type": type(msg).__name__,
+                                    "node": node_name,
+                                    "step": step_count
+                                }
+                            execution_trace["all_messages"].append(msg_dict)
+                    
+                    # Track tool usage
+                    if node_name in ["search_products", "extract_product_data"]:
+                        tool_info = {
+                            "node": node_name,
+                            "step": step_count,
+                            "timestamp": time.time() - start_time,
+                            "search_query": node_state.get("search_query", ""),
+                            "search_parameters": node_state.get("search_parameters", ""),
+                            "results_count": len(node_state.get("search_results", [])),
+                            "products_found": len(node_state.get("product_data", []))
+                        }
+                        execution_trace["tool_calls"].append(tool_info)
+                    
+                    # Track state transitions
+                    execution_trace["state_transitions"].append({
+                        "step": step_count,
+                        "node": node_name,
+                        "state_snapshot": {
+                            "query_type": node_state.get("query_type", ""),
+                            "search_query": node_state.get("search_query", ""),
+                            "current_step": node_state.get("current_step", ""),
+                            "message_count": len(node_state.get("messages", [])),
+                            "product_count": len(node_state.get("product_data", []))
+                        }
+                    })
             
             execution_time = time.time() - start_time
             
-            # Extract results from final state
+            # Extract results from accumulated state
             if final_state:
-                # Get the last state from the chunk
-                last_node = list(final_state.keys())[-1]
-                state = final_state[last_node]
+                # Use accumulated state that contains data from all nodes
+                state = accumulated_state
+                
+                # Debug: Print accumulated state data
+                print(f"\n🔍 Accumulated state debug:")
+                print(f"  search_results: {len(state.get('search_results', []))}")
+                print(f"  filtered_product_links: {len(state.get('filtered_product_links', []))}")
+                print(f"  product_data: {len(state.get('product_data', []))}")
+                print(f"  extracted_products_count: {state.get('extracted_products_count', 'N/A')}")
+                print(f"  search_metadata: {state.get('search_metadata', {})}")
+                print(f"  final_response length: {len(state.get('final_response', ''))}")
+                print(f"  All state keys: {list(state.keys())}")
+                
+                # Create final answer from the most recent message with content
+                final_answer = state.get("final_response", "")
+                if not final_answer and execution_trace["all_messages"]:
+                    # Get the last message with content
+                    for msg in reversed(execution_trace["all_messages"]):
+                        if msg.get("content") and msg["content"].strip():
+                            final_answer = msg["content"]
+                            break
                 
                 return {
                     "query": query,
@@ -83,12 +181,23 @@ class ShoppingAgentRunner:
                     "search_metadata": state.get("search_metadata", {}),
                     "filtered_product_links": state.get("filtered_product_links", []),
                     "product_data": state.get("product_data", []),
-                    "final_response": state.get("final_response", ""),
+                    "final_response": final_answer,
                     "suggested_questions": state.get("suggested_questions", []),
                     "current_step": state.get("current_step", ""),
                     "execution_time": execution_time,
                     "success": True,
-                    "error": None
+                    "error": None,
+                    # Enhanced tracking data for evaluation
+                    "final_answer": final_answer,  # LangSmith 호환성
+                    "messages": execution_trace["all_messages"],  # 모든 메시지 기록
+                    "execution_trace": execution_trace,  # 상세 실행 추적
+                    "workflow_stats": {
+                        "total_steps": step_count,
+                        "nodes_executed": len(execution_trace["nodes_executed"]),
+                        "tool_calls_made": len(execution_trace["tool_calls"]),
+                        "messages_generated": len(execution_trace["all_messages"]),
+                        "execution_path": [node["node"] for node in execution_trace["nodes_executed"]]
+                    }
                 }
             else:
                 return {
@@ -115,9 +224,23 @@ class ShoppingAgentRunner:
             """
             Target function that runs the agent and returns outputs
             """
-            query = inputs.get("query", inputs.get("input", ""))
+            # 다양한 입력 필드명 시도
+            query = (inputs.get("query") or 
+                    inputs.get("input") or 
+                    inputs.get("question") or 
+                    inputs.get("text") or
+                    inputs.get("prompt") or
+                    "")
+            
+            # 만약 딕셔너리에 값이 하나만 있다면 그것을 사용
+            if not query and len(inputs) == 1:
+                query = list(inputs.values())[0]
+            
             if not query:
-                raise ValueError("No query found in inputs")
+                # 디버그를 위해 입력 구조 출력
+                print(f"🔍 Debug - Available input keys: {list(inputs.keys())}")
+                print(f"🔍 Debug - Input values: {inputs}")
+                raise ValueError(f"No query found in inputs. Available keys: {list(inputs.keys())}")
             
             # Run the agent
             result = await self.run_agent(query)
@@ -239,26 +362,28 @@ class ShoppingAgentRunner:
             print(f"🏷️  Query type: {result.get('query_type', 'Unknown')}")
             print(f"🔍 Search query: {result.get('search_query', 'None')}")
             print(f"🛍️  Products found: {len(result.get('product_data', []))}")
+            print(f"🔗 Filtered links: {len(result.get('filtered_product_links', []))}")
+            print(f"📊 Search results: {len(result.get('search_results', []))}")
+            
+            # Debug data for evaluation
+            print(f"\n🔍 Debug - Data for evaluation:")
+            print(f"  product_data count: {len(result.get('product_data', []))}")
+            print(f"  filtered_product_links count: {len(result.get('filtered_product_links', []))}")
+            if result.get('product_data'):
+                print(f"  First product sample: {list(result['product_data'][0].keys()) if result['product_data'] else 'None'}")
         
-        # Run evaluators
+        # Run parallel evaluation by default
         inputs = {"query": query}
-        evaluation_results = {}
+        print(f"🚀 Running parallel evaluation...")
         
-        for evaluator in self.evaluators:
-            try:
-                eval_result = evaluator.evaluate(inputs, result)
+        try:
+            eval_results_list = asyncio.run(self.parallel_manager.evaluate_parallel(inputs, result))
+            evaluation_results = {}
+            for eval_result in eval_results_list:
                 evaluation_results[eval_result["key"]] = eval_result
-                
-                if verbose:
-                    print(f"📊 {eval_result['key']}: {eval_result['score']:.3f}")
-                    
-            except Exception as e:
-                print(f"❌ Evaluator {evaluator.name} failed: {e}")
-                evaluation_results[evaluator.name] = {
-                    "key": evaluator.name,
-                    "score": 0.0,
-                    "comment": f"Evaluation failed: {str(e)}"
-                }
+        except Exception as e:
+            print(f"❌ Parallel evaluation failed: {e}")
+            evaluation_results = {}
         
         # Calculate overall score
         if evaluation_results:

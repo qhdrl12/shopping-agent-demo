@@ -333,14 +333,31 @@ def extract_product_info(url: str) -> str:
                 "schema": product_schema
             },
             only_main_content=True,
-            wait_for=2000  # Reduced wait time for faster extraction
+            wait_for=5000  # 대기 시간 증가 (JavaScript 렌더링 대기)
         )
         
         extracted_data = result.extract
+        
+        # Debug: Print what was actually extracted
+        print(f"🔍 Extracted data for {url}: {extracted_data}")
+        print(f"🔍 Name: '{extracted_data.get('name')}' (type: {type(extracted_data.get('name'))})")
+        print(f"🔍 Price: '{extracted_data.get('price')}' (type: {type(extracted_data.get('price'))})")
+        
         # Process and return the extracted data
-        if extracted_data.get('name') and extracted_data.get('price'):
+        # 더 정확한 검증: name은 빈 문자열이 아니어야 하고, price는 0보다 커야 함
+        name = extracted_data.get('name', '')
+        price = extracted_data.get('price', 0)
+        
+        name_valid = isinstance(name, str) and name.strip() != ''
+        price_valid = isinstance(price, (int, float)) and price > 0
+        
+        print(f"🔍 Validation - Name valid: {name_valid} ('{name}'), Price valid: {price_valid} ({price})")
+        
+        if name_valid and price_valid:
+            print(f"✅ Successfully extracted product info for {url}")
             return extracted_data
         else:
+            print(f"❌ Validation failed - Name: {name_valid}, Price: {price_valid}")
             return f"Could not extract product info from {url}"
             
     except Exception as e:

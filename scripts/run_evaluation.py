@@ -42,6 +42,9 @@ from evaluation.runner import (
     test_single_query,
     list_datasets
 )
+from evaluation.inference_runner import run_inference_only, get_inference_progress
+from evaluation.evaluation_runner import run_evaluation_only
+from evaluation.cache_manager import cache_manager
 from evaluation.analyzer import (
     EvaluationAnalyzer,
     PerformanceTracker,
@@ -299,6 +302,96 @@ def list_available_datasets() -> None:
         print(f"❌ Failed to list datasets: {e}")
 
 
+def run_inference_mode(dataset_name: str, max_concurrency: int = 1) -> None:
+    """추론만 실행하고 캐시에 저장"""
+    print(f"\n🔍 Running Inference-Only Mode")
+    print(f"Dataset: {dataset_name}")
+    print("=" * 60)
+    
+    try:
+        import asyncio
+        result = asyncio.run(run_inference_only(
+            dataset_name=dataset_name,
+            max_concurrency=max_concurrency
+        ))
+        
+        print(f"\n✅ Inference completed!")
+        print(f"📊 Results: {result['successful_examples']}/{result['total_examples']} successful")
+        
+    except Exception as e:
+        print(f"❌ Inference failed: {e}")
+
+
+def run_evaluation_mode(dataset_name: str, experiment_name: Optional[str] = None, 
+                       max_concurrency: int = 3) -> None:
+    """캐시된 결과로 평가만 실행"""
+    print(f"\n⚡ Running Evaluation-Only Mode")
+    print(f"Dataset: {dataset_name}")
+    print("=" * 60)
+    
+    try:
+        import asyncio
+        experiment_id = asyncio.run(run_evaluation_only(
+            dataset_name=dataset_name,
+            experiment_name=experiment_name,
+            max_concurrency=max_concurrency
+        ))
+        
+        print(f"\n✅ Evaluation completed!")
+        print(f"🔗 Experiment: {experiment_id}")
+        
+    except Exception as e:
+        print(f"❌ Evaluation failed: {e}")
+
+
+def show_cache_status(dataset_name: Optional[str] = None) -> None:
+    """캐시 상태 표시"""
+    print(f"\n📊 Cache Status")
+    print("=" * 60)
+    
+    if dataset_name:
+        # 특정 데이터셋 캐시 상태
+        status = cache_manager.get_dataset_cache_status(dataset_name)
+        print(f"Dataset: {dataset_name}")
+        print(f"  Cached examples: {status['completed_examples']}")
+        print(f"  Total examples: {status['total_examples']}")
+        print(f"  Completion rate: {status['completion_rate']:.1%}")
+        print(f"  Version match: {status['version_match']}")
+        print(f"  Last updated: {status.get('last_updated', 'Never')}")
+    else:
+        # 전체 캐시 통계
+        stats = cache_manager.get_cache_statistics()
+        datasets = cache_manager.list_cached_datasets()
+        
+        print(f"Overall Statistics:")
+        print(f"  Total datasets: {stats['total_datasets']}")
+        print(f"  Total examples: {stats['total_examples']}")
+        print(f"  Completed examples: {stats['completed_examples']}")
+        print(f"  Overall completion: {stats['overall_completion_rate']:.1%}")
+        print(f"  Cache size: {stats['cache_size_mb']} MB")
+        
+        if datasets:
+            print(f"\nDatasets:")
+            for dataset in datasets:
+                print(f"  📋 {dataset['dataset_name']}: {dataset['completion_rate']:.1%} ({dataset['completed_examples']}/{dataset['total_examples']})")
+
+
+def clear_cache(dataset_name: str) -> None:
+    """캐시 삭제"""
+    print(f"\n🗑️  Clearing Cache")
+    print(f"Dataset: {dataset_name}")
+    print("=" * 60)
+    
+    try:
+        success = cache_manager.invalidate_cache(dataset_name)
+        if success:
+            print(f"✅ Cache cleared successfully")
+        else:
+            print(f"❌ Failed to clear cache")
+    except Exception as e:
+        print(f"❌ Error clearing cache: {e}")
+
+
 def create_sample_dataset() -> None:
     """
     Create a sample dataset for testing
@@ -370,7 +463,7 @@ Examples:
     
     parser.add_argument(
         "--mode",
-        choices=["single", "single-to-langsmith", "full", "compare", "trend", "report", "list-datasets", "create-sample"],
+        choices=["single", "single-to-langsmith", "full", "inference", "evaluation", "cache-status", "cache-clear", "compare", "trend", "report", "list-datasets", "create-sample"],
         required=True,
         help="Evaluation mode"
     )
@@ -441,6 +534,31 @@ Examples:
             
         elif args.mode == "list-datasets":
             list_available_datasets()
+            
+        elif args.mode == "inference":
+            if not args.dataset:
+                parser.error("--dataset is required for inference mode")
+            run_inference_mode(
+                dataset_name=args.dataset,
+                max_concurrency=args.concurrency
+            )
+            
+        elif args.mode == "evaluation":
+            if not args.dataset:
+                parser.error("--dataset is required for evaluation mode")
+            run_evaluation_mode(
+                dataset_name=args.dataset,
+                experiment_name=args.experiment,
+                max_concurrency=args.concurrency
+            )
+            
+        elif args.mode == "cache-status":
+            show_cache_status(args.dataset)
+            
+        elif args.mode == "cache-clear":
+            if not args.dataset:
+                parser.error("--dataset is required for cache-clear mode")
+            clear_cache(args.dataset)
             
         elif args.mode == "create-sample":
             create_sample_dataset()

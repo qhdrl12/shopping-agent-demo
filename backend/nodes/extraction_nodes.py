@@ -50,10 +50,16 @@ class ExtractionNodes:
             valid_products = []
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    print(f"Error extracting product {i}: {result}")
+                    print(f"❌ Error extracting product {i}: {result}")
                     continue
+                
+                print(f"🔍 Product {i} result type: {type(result)}, content: {str(result)[:100]}...")
+                
                 if isinstance(result, dict) and result:
                     valid_products.append(result)
+                    print(f"✅ Product {i}: Successfully added")
+                else:
+                    print(f"❌ Product {i}: Filtered out (empty or invalid)")
             
             print(f"🎉 Parallel extraction completed: {len(valid_products)}/{len(state['filtered_product_links'])} products extracted successfully")
             return valid_products        
@@ -62,6 +68,7 @@ class ExtractionNodes:
 
         return {
             "product_data": product_data,
+            "extracted_products_count": len(product_data),  # 실제 추출 성공 개수 기록
             "current_step": "data_extracted"
         }
     
@@ -109,7 +116,17 @@ class ExtractionNodes:
             print(f"Product selection error: {e}, keeping first 3 products")
             product_data = state["product_data"][:3]
         
+        # 원본 추출 성공 개수 보존 (평가를 위해)
+        original_extracted_count = state.get("extracted_products_count", len(state.get("product_data", [])))
+        
+        print(f"🔍 validate_and_select debug:")
+        print(f"  Input product_data count: {len(state.get('product_data', []))}")
+        print(f"  Input extracted_products_count: {state.get('extracted_products_count', 'Not found')}")
+        print(f"  Selected product_data count: {len(product_data)}")
+        print(f"  Final extracted_products_count: {original_extracted_count}")
+        
         return {
             "product_data": product_data,
+            "extracted_products_count": original_extracted_count,  # 원본 추출 성공 개수 보존
             "current_step": "products_selected"
         }
