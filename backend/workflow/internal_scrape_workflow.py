@@ -12,6 +12,7 @@ This workflow provides better performance and control over data extraction.
 """
 
 # Load environment variables at module level to ensure they're available
+import time
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
@@ -104,6 +105,7 @@ class InternalScrapeNodes:
         Optimize search query for internal scrape tools
         Converts search parameters to format expected by search_detailed_products
         """
+        print("🔍 검색 쿼리를 최적화하고 있습니다...")
 
         query_prompt = ChatPromptTemplate.from_messages([
             ("system", INTERNAL_SEARCH_QUERY_OPTIMIZATION_PROMPT),
@@ -118,7 +120,7 @@ class InternalScrapeNodes:
             
             return {
                 "search_query": result.search_query,
-                "search_parameters": result.search_parameters,
+                "search_parameters": result.search_parameters.model_dump(),
                 "current_step": "search_optimized"
             }
         except Exception as e:
@@ -127,7 +129,13 @@ class InternalScrapeNodes:
             user_query = state["messages"][-1].content
             return {
                 "search_query": user_query,
-                "search_parameters": "",
+                "search_parameters": {
+                    "gender": "A",
+                    "minPrice": 0,
+                    "maxPrice": 999999,
+                    "color": "",
+                    "shoeSize": 0
+                },
                 "current_step": "search_optimized"
             }
     
@@ -140,24 +148,25 @@ class InternalScrapeNodes:
         search_params = state["search_parameters"]
 
         try:
-            print(f"Searching with internal tool: {search_query}, params: {search_params}")
+            print(f"🛍️ 무신사에서 상품을 검색하고 있습니다...")
+            print(f"검색어: {search_query}")
+
+            search_dict = search_params.copy()
             
-            # Call search_detailed_products tool with search_query as keyword
-            search_dict = search_params.model_dump()
             search_dict["keyword"] = search_query  # Add search_query as keyword parameter
             result = search_detailed_products.invoke(search_dict)
             
             if result.get("success"):
                 products = result.get("products", [])
-                print(f"Found {len(products)} products via internal search")
+                print(f"✅ {len(products)}개의 상품을 찾았습니다")
                 
                 # Parse products to legacy-compatible format
                 parsed_products = self._parse_to_legacy_format(products)
-                print(f"Parsed products: {parsed_products}")
+                print(f"📦 상품 데이터를 처리했습니다: {len(parsed_products)}개")
                 
                 search_metadata = {
                     "search_query": search_query,
-                    "search_parameters": search_params,
+                    "search_parameters": search_dict,  # Use already-converted dict
                     "results_count": len(parsed_products),
                     "search_method": "internal_scrape"
                 }
@@ -165,32 +174,40 @@ class InternalScrapeNodes:
                 return {
                     "search_results": parsed_products,
                     "search_metadata": search_metadata,
-                    "current_step": "search_completed_internal"
+                    "current_step": "search_completed"
                 }
             else:
-                print(f"Internal search failed: {result.get('error', 'Unknown error')}")
+                print(f"❌ 검색 실패: {result.get('error', 'Unknown error')}")
                 return {
                     "search_results": [],
                     "search_metadata": {
                         "search_query": search_query,
-                        "search_parameters": search_params,
+                        "search_parameters": search_dict if 'search_dict' in locals() else (search_params if isinstance(search_params, dict) else {}),
                         "results_count": 0,
                         "error": result.get("error")
                     },
-                    "current_step": "search_failed"
+                    "current_step": "search_completed"
                 }
                 
         except Exception as e:
-            print(f"Error in search_products_internal: {e}")
+            print(f"❌ 검색 중 오류 발생: {e}")
+            # Handle search_params serialization in exception case too
+            if hasattr(search_params, 'model_dump'):
+                search_params_dict = search_params.model_dump()
+            elif isinstance(search_params, dict):
+                search_params_dict = search_params
+            else:
+                search_params_dict = {}
+                
             return {
                 "search_results": [],
                 "search_metadata": {
                     "search_query": search_query,
-                    "search_parameters": search_params,
+                    "search_parameters": search_params_dict,
                     "results_count": 0,
                     "error": str(e)
                 },
-                "current_step": "search_failed"
+                "current_step": "search_completed"
             }
     
     def _parse_to_legacy_format(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -268,8 +285,8 @@ class InternalScrapeWorkflow:
         # Add workflow nodes
         workflow.add_node("analyze_query", self.query_nodes.analyze_query)
         workflow.add_node("handle_general_query", self.query_nodes.handle_general_query)
-        workflow.add_node("optimize_search_query_internal", self.internal_nodes.optimize_search_query_internal)
-        workflow.add_node("search_products_internal", self.internal_nodes.search_products_internal)
+        workflow.add_node("optimize_search_query", self.internal_nodes.optimize_search_query_internal)
+        workflow.add_node("search_products", self.internal_nodes.search_products_internal)
         workflow.add_node("generate_final_response", self.response_nodes.generate_final_response)
         workflow.add_node("generate_suggested_questions", self.question_nodes.generate_suggested_questions)
         
@@ -282,15 +299,15 @@ class InternalScrapeWorkflow:
             self._route_after_analysis,
             {
                 "general": "handle_general_query",
-                "search_required": "optimize_search_query_internal"
+                "search_required": "optimize_search_query"
             }
         )
         
         workflow.add_edge("handle_general_query", "generate_suggested_questions")
-        workflow.add_edge("optimize_search_query_internal", "search_products_internal")
+        workflow.add_edge("optimize_search_query", "search_products")
         
         workflow.add_conditional_edges(
-            "search_products_internal",
+            "search_products",
             self._route_after_search,
             {
                 "generate_response": "generate_final_response",
