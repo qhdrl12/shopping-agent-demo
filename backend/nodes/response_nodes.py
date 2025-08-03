@@ -3,6 +3,7 @@ Response generation nodes
 """
 
 import json
+import time
 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import AIMessage
@@ -39,7 +40,8 @@ class ResponseNodes:
         Returns:
             dict: 최종 응답, 업데이트된 메시지, 단계 정보
         """
-        
+        # 너무 빠르게 넘어가는 문제로, 도구 호출 확인을 위한 임시 딜레이
+        time.sleep(2)
         print("Starting final response generation...")
 
         # Handle both legacy (product_data) and new (search_results) workflow formats
