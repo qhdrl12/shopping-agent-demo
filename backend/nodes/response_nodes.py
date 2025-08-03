@@ -42,7 +42,10 @@ class ResponseNodes:
         
         print("Starting final response generation...")
 
-        if not state.get("product_data"):
+        # Handle both legacy (product_data) and new (search_results) workflow formats
+        products = state.get("product_data") or state.get("search_results", [])
+        
+        if not products:
             # 검색 결과가 없을 때, 전체 대화 기록을 바탕으로 답변 생성
             response_prompt = ChatPromptTemplate.from_messages([
                 ("system", NO_RESULTS_RESPONSE_PROMPT),
@@ -56,12 +59,12 @@ class ResponseNodes:
                 MessagesPlaceholder(variable_name="messages"),
                 ("human", "검색된 상품 정보를 참고하여 답변해주세요:\n\n{products}")
             ])
-            # Safely handle product_data serialization
+            # Safely handle products serialization
             try:
-                products_str = json.dumps(state["product_data"], ensure_ascii=False, indent=2)
+                products_str = json.dumps(products, ensure_ascii=False, indent=2)
             except (TypeError, ValueError) as e:
-                print(f"Warning: Failed to serialize product_data: {e}")
-                products_str = str(state["product_data"])
+                print(f"Warning: Failed to serialize products: {e}")
+                products_str = str(products)
             
             formatted_prompt = response_prompt.format_messages(
                 messages=state["messages"],

@@ -1,7 +1,7 @@
 """
-Unified Shopping Agent Workflow
+Legacy Unified Shopping Agent Workflow (Firecrawl-based)
 
-This module implements a single LangGraph workflow that handles the complete shopping assistance process:
+This module implements the legacy LangGraph workflow using Firecrawl tools:
 1. User query analysis
 2. Question classification (general vs. search-required)
 3. Search execution with Firecrawl
@@ -9,6 +9,9 @@ This module implements a single LangGraph workflow that handles the complete sho
 5. Parallel product data extraction
 6. Data quality validation and selection
 7. Final response generation
+
+LEGACY STATUS: This workflow is maintained for compatibility but the new
+internal_scrape_workflow.py provides better performance and control.
 
 The workflow uses a state-based approach with conditional routing for optimal performance.
 """
@@ -51,8 +54,8 @@ class WorkflowState(TypedDict):
     current_step: str
 
 
-class UnifiedShoppingWorkflow:
-    """Main workflow class that orchestrates the shopping assistance process"""
+class LegacyUnifiedShoppingWorkflow:
+    """Legacy workflow class using Firecrawl tools (maintained for compatibility)"""
     
     def __init__(self, model_name: str = "openai/gpt-4.1"):
         self.query_nodes = QueryNodes(model_name)
@@ -144,10 +147,14 @@ class UnifiedShoppingWorkflow:
     
 
 
-# Create global workflow instance
-unified_workflow = UnifiedShoppingWorkflow("openai/gpt-4.1")
-# unified_workflow = UnifiedShoppingWorkflow("openrouter/google/gemini-2.5-flash")
-# unified_workflow = UnifiedShoppingWorkflow("openrouter/qwen/qwen3-235b-a22b-07-25:free")
+# Create global legacy workflow instance
+legacy_unified_workflow = LegacyUnifiedShoppingWorkflow("openai/gpt-4.1")
+# legacy_unified_workflow = LegacyUnifiedShoppingWorkflow("openrouter/google/gemini-2.5-flash")
+# legacy_unified_workflow = LegacyUnifiedShoppingWorkflow("openrouter/qwen/qwen3-235b-a22b-07-25:free")
 
-# Export compiled workflow for LangGraph Studio
-workflow = unified_workflow.workflow
+# Export compiled workflow for LangGraph Studio (legacy)
+legacy_workflow = legacy_unified_workflow.workflow
+
+# Maintain backward compatibility
+unified_workflow = legacy_unified_workflow
+workflow = legacy_workflow
