@@ -12,7 +12,6 @@ This workflow provides better performance and control over data extraction.
 """
 
 # Load environment variables at module level to ensure they're available
-import time
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 

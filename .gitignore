@@ -216,3 +216,5 @@ langsmith_traces/
 
 # YoYo AI version control directory
 .yoyo/
+
+.claude

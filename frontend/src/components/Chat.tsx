@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -1128,6 +1128,9 @@ export default function Chat() {
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
                               rehypePlugins={[rehypeHighlight]}
+                              skipHtml={false}
+                              disallowedElements={[]}
+                              unwrapDisallowed={false}
                               components={{
                               // Custom styling for markdown elements
                               h1: ({...props}) => (
@@ -1138,19 +1141,16 @@ export default function Chat() {
                               ),
                               h2: ({...props}) => (
                                 <h2 className="text-2xl font-bold text-gray-100 mb-5 mt-8 flex items-center space-x-3" {...props}>
-                                  {/* <span className="text-xl">🔍</span> */}
                                   <span>{props.children}</span>
                                 </h2>
                               ),
                               h3: ({...props}) => (
                                 <h3 className="text-xl font-semibold text-gray-200 mb-4 mt-6 flex items-center space-x-2" {...props}>
-                                  {/* <span className="text-lg">🏆</span> */}
                                   <span>{props.children}</span>
                                 </h3>
                               ),
                               h4: ({...props}) => (
                                 <h4 className="text-lg font-semibold text-gray-200 mb-3 mt-5 flex items-center space-x-2" {...props}>
-                                  {/* <span className="text-base">{/1순위|🥇/.test(props.children?.toString() || '') ? '🥇' : /2순위|🥈/.test(props.children?.toString() || '') ? '🥈' : /3순위|🥉/.test(props.children?.toString() || '') ? '🥉' : '💡'}</span> */}
                                   <span>{props.children}</span>
                                 </h4>
                               ),
@@ -1200,7 +1200,6 @@ export default function Chat() {
                                         </div>
                                       </a>
                                       
-                                      {/* 바로결제 버튼 */}
                                       <button
                                         onClick={(e) => {
                                           e.preventDefault();
@@ -1224,11 +1223,14 @@ export default function Chat() {
                                 // 일반 링크는 기본 스타일
                                 return <a href={href} className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors font-medium" {...props}>{children}</a>;
                               },
-                              p: ({...props}) => <p className="text-gray-200 mb-4 leading-relaxed" {...props} />,
+                              p: ({children, ...props}) => {
+                                // Use div instead of p to prevent hydration errors with nested block elements
+                                return <div className="text-gray-200 mb-4 leading-relaxed" {...props}>{children}</div>;
+                              },
                               img: ({src, alt, ...props}) => {
                                 if (!src) return null;
                                 
-                                // Simple image rendering without carousel overhead
+                                // Image with overlay - safe to use div structure since paragraphs are now divs
                                 return (
                                   <div className="my-4">
                                     <div className="relative group">
