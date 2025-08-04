@@ -1,16 +1,18 @@
-import asyncio
 import json
 import uuid
 from typing import Dict, Optional
+
+# Load environment variables first, before importing any modules that might need them
+from dotenv import load_dotenv
+load_dotenv()
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage
-from dotenv import load_dotenv
 
-from ..workflow.unified_workflow import unified_workflow
+from ..workflow.internal_scrape_workflow import internal_workflow
 from ..services.kakao_pay_service import kakao_pay_service
 from ..models.schemas import (
     PaymentReadyRequest, 
@@ -20,8 +22,6 @@ from ..models.schemas import (
     PaymentErrorResponse
 )
 
-# Load environment variables
-load_dotenv()
 
 # Request/Response models
 class ChatRequest(BaseModel):
@@ -53,6 +53,7 @@ LLM_NODES = {
     'analyze_query': 'AI가 질문을 분석하고 있습니다...',
     'handle_general_query': 'AI가 답변을 생성하고 있습니다...',
     'optimize_search_query': 'AI가 검색어를 최적화하고 있습니다...',
+    'optimize_search_query_internal': 'AI가 검색어를 최적화하고 있습니다...',
     'generate_final_response': 'AI가 최종 답변을 생성하고 있습니다...',
     'generate_suggested_questions': 'AI가 추천 질문을 생성하고 있습니다...'
 }
@@ -64,6 +65,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "message": "API is running"}
+
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
@@ -83,7 +85,7 @@ async def chat(request: ChatRequest):
         }
         
         # Execute workflow
-        result = await unified_workflow.workflow.ainvoke(workflow_input, config=config)
+        result = await internal_workflow.ainvoke(workflow_input, config=config)
         
         # Extract response and suggested questions
         final_response = result.get('final_response', '응답을 생성할 수 없습니다.')
@@ -131,7 +133,7 @@ async def chat_stream(request: ChatRequest):
                 
                 print(f"Starting workflow for: {request.message}")
                 
-                async for event in unified_workflow.workflow.astream_events(workflow_input, config=config, version="v2"):
+                async for event in internal_workflow.astream_events(workflow_input, config=config, version="v2"):
                     event_type = event.get("event")
                     event_name = event.get("name", "")
                     event_data = event.get("data", {})

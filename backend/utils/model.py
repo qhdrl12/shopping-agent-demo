@@ -1,6 +1,10 @@
 import os
+from dotenv import load_dotenv
 from langchain_core.language_models import BaseChatModel
 from langchain.chat_models import init_chat_model
+
+# Ensure environment variables are loaded
+load_dotenv()
 
 def load_chat_model(fully_specified_name: str, temperature: float = 0.7, streaming: bool = False) -> BaseChatModel:
     """Load a chat model from a fully specified name.

@@ -15,7 +15,7 @@ interface Message {
   requestId?: string;
   searchMetadata?: {
     search_query: string;
-    search_parameters: string;
+    search_parameters: Record<string, any>;
     results_count: number;
     search_url: string;
   };
@@ -205,11 +205,11 @@ export default function Chat() {
                 </span>
               </div>
               
-              {searchMetadata.search_parameters && (
+              {searchMetadata.search_parameters && Object.keys(searchMetadata.search_parameters).length > 0 && (
                 <div className="flex items-start space-x-2">
                   <span className="text-emerald-400 font-medium">필터:</span>
                   <span className="text-gray-300 bg-emerald-900/20 px-2 py-1 rounded-md text-xs font-mono border border-emerald-700/20">
-                    {searchMetadata.search_parameters}
+                    {JSON.stringify(searchMetadata.search_parameters, null, 2)}
                   </span>
                 </div>
               )}
